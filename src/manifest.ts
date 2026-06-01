@@ -37,61 +37,24 @@ export async function getManifest() {
     },
     permissions: [
       'storage',
-      'declarativeNetRequest',
       'tabs',
-      ...isFirefox
-        ? ['webRequest', 'webRequestBlocking', 'cookies']
-        : [],
     ],
     host_permissions: [
-      '*://*.bilibili.com/*',
-      '*://*.hdslb.com/*',
+      'https://linux.do/*',
     ],
     content_scripts: [
       {
         matches: [
-          '*://www.bilibili.com/*',
-          '*://search.bilibili.com/*',
-          '*://t.bilibili.com/*',
-          '*://space.bilibili.com/*',
-          '*://message.bilibili.com/*',
-          '*://member.bilibili.com/*',
-          '*://account.bilibili.com/*',
-          '*://www.hdslb.com/*',
-          '*://passport.bilibili.com/*',
-          '*://music.bilibili.com/*',
+          'https://linux.do/*',
         ],
         js: ['./dist/contentScripts/index.global.js'],
-        css: ['./dist/contentScripts/style.css'],
         run_at: 'document_start',
-        match_about_blank: true,
-        all_frames: true,
-      },
-      {
-        matches: [
-          '*://www.bilibili.com/*',
-          '*://search.bilibili.com/*',
-          '*://t.bilibili.com/*',
-          '*://space.bilibili.com/*',
-          '*://message.bilibili.com/*',
-          '*://member.bilibili.com/*',
-          '*://account.bilibili.com/*',
-          '*://www.hdslb.com/*',
-          '*://passport.bilibili.com/*',
-          '*://music.bilibili.com/*',
-        ],
-        js: ['./dist/inject/index.js'],
-        run_at: 'document_start',
-        all_frames: true,
-        // eslint-disable-next-line ts/ban-ts-comment
-        // @ts-expect-error
-        world: 'MAIN',
       },
     ],
     web_accessible_resources: [
       {
-        resources: ['dist/contentScripts/style.css', 'assets/*'],
-        matches: ['<all_urls>'],
+        resources: ['dist/contentScripts/style.css'],
+        matches: ['https://linux.do/*'],
         // matches: ['./assets/*'],
       },
     ],
@@ -104,19 +67,6 @@ export async function getManifest() {
           // this is required on dev for Vite script to load
             ? `script-src 'self' http://localhost:${port}; object-src 'self' http://localhost:${port}`
             : 'script-src \'self\'; object-src \'self\'',
-        },
-    ...isFirefox
-      ? {}
-      : {
-          declarative_net_request: {
-            rule_resources: [
-              {
-                id: 'ruleset_1',
-                enabled: true,
-                path: 'assets/rules.json',
-              },
-            ],
-          },
         },
   }
 

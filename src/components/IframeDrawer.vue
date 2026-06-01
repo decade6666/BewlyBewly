@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { onKeyStroke, useEventListener } from '@vueuse/core'
+import { onKeyStroke } from '@vueuse/core'
 
-import { DRAWER_VIDEO_ENTER_PAGE_FULL, DRAWER_VIDEO_EXIT_PAGE_FULL } from '~/constants/globalEvents'
-import { settings } from '~/logic'
-import { isHomePage, isInIframe } from '~/utils/main'
-
-// TODO: support shortcuts like `Ctrl+Alt+T` to open in new tab, `Esc` to close
+import Button from '~/components/Button.vue'
+import { openLinkToNewTab } from '~/utils/main'
 
 const props = defineProps<{
   url: string
@@ -16,76 +13,72 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const drawerMessages = {
+  en: {
+    close: 'Close',
+    copyLink: 'Copy link',
+    copyLinkCopied: 'Copied',
+    openInNewTab: 'Open in new tab',
+  },
+  'cmn-CN': {
+    close: '关闭',
+    copyLink: '复制链接',
+    copyLinkCopied: '已复制',
+    openInNewTab: '在新标签页打开',
+  },
+  'cmn-TW': {
+    close: '關閉',
+    copyLink: '複製連結',
+    copyLinkCopied: '已複製',
+    openInNewTab: '在新索引標籤開啓連結',
+  },
+  jyut: {
+    close: '關閉',
+    copyLink: '複製連結',
+    copyLinkCopied: '已複製',
+    openInNewTab: '喺新嘅分頁度打開連結',
+  },
+} as const
+
+type DrawerLocale = keyof typeof drawerMessages
+
+const drawerLabels = drawerMessages[getDrawerLocale(navigator.language)]
+
+function getDrawerLocale(language: string): DrawerLocale {
+  const normalizedLanguage = language.toLowerCase()
+
+  if (normalizedLanguage.startsWith('zh-hk') || normalizedLanguage.startsWith('yue'))
+    return 'jyut'
+
+  if (normalizedLanguage.startsWith('zh-tw'))
+    return 'cmn-TW'
+
+  if (normalizedLanguage.startsWith('zh'))
+    return 'cmn-CN'
+
+  return 'en'
+}
+
 const show = ref(false)
 const headerShow = ref(false)
 const iframeRef = ref<HTMLIFrameElement | null>(null)
-const currentUrl = ref<string>(props.url)
 const showIframe = ref<boolean>(false)
 const delayCloseTimer = ref<NodeJS.Timeout | null>(null)
-const removeTopBarClassInjected = ref<boolean>(false)
-
-useEventListener(window, 'popstate', updateIframeUrl)
-nextTick(() => {
-  useEventListener(iframeRef.value?.contentWindow, 'historyChange', updateCurrentUrl)
-  useEventListener(iframeRef.value?.contentWindow, 'popstate', updateCurrentUrl)
-
-  useEventListener(iframeRef.value?.contentWindow, 'DOMContentLoaded', () => {
-    if (headerShow.value) {
-      iframeRef.value?.contentWindow?.document.documentElement.classList.add('remove-top-bar-without-placeholder')
-      removeTopBarClassInjected.value = true
-    }
-    else {
-      iframeRef.value?.contentWindow?.document.documentElement.classList.remove('remove-top-bar-without-placeholder')
-      removeTopBarClassInjected.value = false
-    }
-  })
-})
+const copySucceeded = ref<boolean>(false)
+const copySucceededTimer = ref<NodeJS.Timeout | null>(null)
 
 onMounted(() => {
-  history.pushState(null, '', props.url)
   show.value = true
   headerShow.value = true
-  nextTick(() => {
-    iframeRef.value?.focus()
-  })
 })
 
 onBeforeUnmount(() => {
+  clearTimers()
   releaseIframeResources()
 })
 
-onUnmounted(() => {
-  history.replaceState(null, '', 'https://www.bilibili.com')
-})
-
-function updateCurrentUrl() {
-  if (iframeRef.value?.contentWindow) {
-    try {
-      currentUrl.value = iframeRef.value.contentWindow.location.href.replace(/\/$/, '')
-      history.pushState(null, '', currentUrl.value.replace(/\/$/, ''))
-    }
-    catch (error) {
-      console.error('Unable to access iframe URL:', error)
-    }
-  }
-}
-
-async function updateIframeUrl() {
-  if (isHomePage()) {
-    await handleClose()
-    return
-  }
-  await nextTick()
-
-  if (iframeRef.value?.contentWindow) {
-    iframeRef.value.contentWindow.location.replace(location.href.replace(/\/$/, ''))
-  }
-}
-
 async function handleClose() {
-  if (delayCloseTimer.value) {
-    clearTimeout(delayCloseTimer.value)
-  }
+  clearTimers()
   await releaseIframeResources()
   show.value = false
   headerShow.value = false
@@ -94,89 +87,60 @@ async function handleClose() {
   }, 300)
 }
 
+function clearTimers() {
+  if (delayCloseTimer.value)
+    clearTimeout(delayCloseTimer.value)
+  if (copySucceededTimer.value)
+    clearTimeout(copySucceededTimer.value)
+}
+
+function handleEscape(event: KeyboardEvent) {
+  event.preventDefault()
+  handleClose()
+}
+
+function handleIframeKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape')
+    handleEscape(event)
+}
+
+function handleIframeLoad() {
+  showIframe.value = true
+  iframeRef.value?.contentWindow?.addEventListener('keydown', handleIframeKeydown)
+}
+
 async function releaseIframeResources() {
-  // Clear iframe content
-  currentUrl.value = 'about:blank'
-  /**
-   * eg: When use 'iframeRef.value?.contentWindow?.document' of t.bilibili.com iframe on bilibili.com, there may be cross domain issues
-   * set the src to 'about:blank' to avoid this issue, it also can release the memory
-   */
   if (iframeRef.value) {
+    iframeRef.value.contentWindow?.removeEventListener('keydown', handleIframeKeydown)
     iframeRef.value.src = 'about:blank'
   }
+
   await nextTick()
   iframeRef.value?.contentWindow?.close()
-
-  // Remove iframe from the DOM
   iframeRef.value?.parentNode?.removeChild(iframeRef.value)
   await nextTick()
-
-  // Nullify the reference
   iframeRef.value = null
 }
 
 function handleOpenInNewTab() {
-  if (iframeRef.value) {
-    window.open(iframeRef.value.contentWindow?.location.href.replace(/\/$/, ''), '_blank')
-    handleClose()
+  openLinkToNewTab(props.url)
+  handleClose()
+}
+
+async function handleCopyLink() {
+  try {
+    await navigator.clipboard.writeText(props.url)
+    copySucceeded.value = true
+    copySucceededTimer.value = setTimeout(() => {
+      copySucceeded.value = false
+    }, 1300)
+  }
+  catch (error) {
+    console.error('Unable to copy drawer URL:', error)
   }
 }
 
-const isEscPressed = ref<boolean>(false)
-const escPressedTimer = ref<NodeJS.Timeout | null>(null)
-const disableEscPress = ref<boolean>(false)
-
-nextTick(() => {
-  onKeyStroke('Escape', (e: KeyboardEvent) => {
-    e.preventDefault()
-    if (settings.value.closeDrawerWithoutPressingEscAgain) {
-      clearTimeout(escPressedTimer.value!)
-      handleClose()
-      return
-    }
-    if (disableEscPress.value)
-      return
-    if (isEscPressed.value) {
-      handleClose()
-    }
-    else {
-      isEscPressed.value = true
-      if (escPressedTimer.value) {
-        clearTimeout(escPressedTimer.value)
-      }
-      escPressedTimer.value = setTimeout(() => {
-        isEscPressed.value = false
-      }, 1300)
-    }
-  }, { target: iframeRef.value?.contentWindow })
-})
-
-watchEffect(() => {
-  if (isInIframe())
-    return null
-
-  useEventListener(window, 'message', ({ data }) => {
-    switch (data) {
-      case DRAWER_VIDEO_ENTER_PAGE_FULL:
-        headerShow.value = false
-        disableEscPress.value = true
-        break
-      case DRAWER_VIDEO_EXIT_PAGE_FULL:
-        headerShow.value = true
-        disableEscPress.value = false
-        break
-    }
-  })
-})
-
-// const keys = useMagicKeys()
-// const ctrlAltT = keys['Ctrl+Alt+T']
-
-// watch(() => ctrlAltT, (value) => {
-//   if (value) {
-//     handleOpenInNewTab()
-//   }
-// })
+onKeyStroke('Escape', handleEscape, { target: window })
 </script>
 
 <template>
@@ -184,7 +148,6 @@ watchEffect(() => {
     pos="absolute top-0 left-0" of-hidden w-full h-full
     z-999999
   >
-    <!-- Mask -->
     <Transition name="fade">
       <div
         v-if="show"
@@ -212,13 +175,22 @@ watchEffect(() => {
           <template #left>
             <i i-mingcute:external-link-line />
           </template>
-          {{ $t('iframe_drawer.open_in_new_tab') }}
-          <!-- <div flex="~">
-            <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>T</kbd>
-          </div> -->
+          {{ drawerLabels.openInNewTab }}
         </Button>
         <Button
-          v-if="!isEscPressed"
+          style="
+            --b-button-color: var(--bew-elevated-solid);
+            --b-button-color-hover: var(--bew-elevated-solid-hover);
+          "
+          pointer-events-auto
+          @click="handleCopyLink"
+        >
+          <template #left>
+            <i i-mingcute:copy-2-line />
+          </template>
+          {{ copySucceeded ? drawerLabels.copyLinkCopied : drawerLabels.copyLink }}
+        </Button>
+        <Button
           style="
             --b-button-color: var(--bew-elevated-solid);
             --b-button-color-hover: var(--bew-elevated-solid-hover);
@@ -229,24 +201,12 @@ watchEffect(() => {
           <template #left>
             <i i-mingcute:close-line />
           </template>
-          {{ $t('iframe_drawer.close') }}
-          <kbd>Esc</kbd>
-        </Button>
-        <Button
-          v-else
-          type="error"
-          @click="handleClose"
-        >
-          <template #left>
-            <i i-mingcute:close-line />
-          </template>
-          {{ $t('iframe_drawer.press_esc_again_to_close') }}
+          {{ drawerLabels.close }}
           <kbd>Esc</kbd>
         </Button>
       </div>
     </Transition>
 
-    <!-- Iframe -->
     <Transition name="drawer">
       <div
         v-if="show"
@@ -258,15 +218,12 @@ watchEffect(() => {
             v-show="showIframe"
             ref="iframeRef"
             :src="props.url"
-            :style="{
-              // Prevent top bar shaking when before the remove-top-bar-without-placeholder class is injected
-              top: !removeTopBarClassInjected ? `calc(-1 * var(--bew-top-bar-height))` : '0',
-            }"
+            sandbox="allow-scripts allow-same-origin allow-forms"
             frameborder="0"
             pointer-events-auto
             pos="relative left-0"
             w-full
-            h-full @load="showIframe = true"
+            h-full @load="handleIframeLoad"
           />
         </Transition>
       </div>

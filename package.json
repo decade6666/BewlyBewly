@@ -5,7 +5,7 @@
   "version": "0.41.1",
   "private": true,
   "packageManager": "pnpm@9.5.0",
-  "description": "Just make a few small changes to your Bilibili homepage.",
+  "description": "Add a focused drawer browsing experience to Linux.do.",
   "homepage": "https://github.com/hakadao/BewlyBewly",
   "scripts": {
     "dev": "npm run clear && cross-env NODE_ENV=development run-p dev:*",
@@ -114,7 +114,7 @@
       "firefoxProfile": "./web-ext-profile",
       "chromiumProfile": "./web-ext-profile",
       "startUrl": [
-        "https://www.bilibili.com/"
+        "https://linux.do/"
       ]
     }
   }

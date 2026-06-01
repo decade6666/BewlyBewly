@@ -50,6 +50,8 @@ common:
 
 iframe_drawer:
   open_in_new_tab: 在新标签页打开
+  copy_link: 复制链接
+  copy_link_copied: 已复制
   close: 关闭
   press_esc_again_to_close: 再次按下 Esc 关闭
 

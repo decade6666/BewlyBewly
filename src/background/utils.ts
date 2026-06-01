@@ -69,17 +69,11 @@ function apiListenerFactory(API_MAP: APIMAP) {
 
     const api = API_MAP[contentScriptQuery] as API
 
-    // eslint-disable-next-line node/prefer-global/process
-    if (process.env.FIREFOX && sender && sender.tab && sender.tab.cookieStoreId) {
-      const cookies = await browser.cookies.getAll({ storeId: sender.tab.cookieStoreId })
-      return doRequest(message, api, sendResponse, cookies)
-    }
-
     return doRequest(message, api, sendResponse)
   }
 }
 
-function doRequest(message: Message, api: API, sendResponse?: Function, cookies?: Browser.Cookies.Cookie[]) {
+function doRequest(message: Message, api: API, sendResponse?: Function) {
   try {
     let { contentScriptQuery, ...rest } = message
     // rest above two part body or params
@@ -110,11 +104,6 @@ function doRequest(message: Message, api: API, sendResponse?: Function, cookies?
       targetBody = (headers && headers['Content-Type'] && headers['Content-Type'].includes('application/x-www-form-urlencoded'))
         ? new URLSearchParams(targetBody)
         : JSON.stringify(targetBody)
-    }
-    // generate cookies
-    if (cookies) {
-      const cookieStr = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ')
-      headers['firefox-multi-account-cookie'] = cookieStr
     }
     // get cant take body
     const fetchOpt = { method, headers }
