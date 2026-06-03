@@ -74,7 +74,7 @@ describe('linux.do discourse URL helpers', () => {
     ['https://linux.do/', true],
     ['https://linux.do', true],
     ['https://linux.do/?filter=unread', true],
-    ['https://linux.do/latest', false],
+    ['https://linux.do/latest', true],
     ['https://linux.do/top', false],
     ['https://linux.do/hot', false],
     ['https://linux.do/c/general', false],
@@ -171,11 +171,11 @@ describe('linux.do homepage cleanup', () => {
     expect(normalSection?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('hides homepage pinned topic rows without hiding normal topics', () => {
+  it('hides /latest pinned topic rows without hiding normal topics', () => {
     document.body.innerHTML = `
       <table>
         <tbody>
-          <tr class="topic-list-item pinned" data-testid="pinned-class"><td>Pinned by class</td></tr>
+          <tr class="topic-list-item category-feedback has-excerpt pinned tag-公告" data-testid="pinned-class"><td>Pinned by class</td></tr>
           <tr class="topic-list-item" data-testid="pinned-icon"><td><span class="topic-status-pinned">Pinned by icon</span></td></tr>
           <tr class="topic-list-item" data-testid="pinned-title"><td><span title="此话题已置顶">Pinned by title</span></td></tr>
           <tr class="topic-list-item" data-testid="pinned-english-title"><td><span title="This topic is pinned">Pinned by English title</span></td></tr>
@@ -185,7 +185,7 @@ describe('linux.do homepage cleanup', () => {
       </table>
     `
 
-    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+    hideLinuxDoHomePageElements(document, 'https://linux.do/latest')
 
     const pinnedByClass = document.querySelector<HTMLElement>('[data-testid="pinned-class"]')
     const pinnedByIcon = document.querySelector<HTMLElement>('[data-testid="pinned-icon"]')
@@ -202,7 +202,7 @@ describe('linux.do homepage cleanup', () => {
     expect(normalTopic?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('hides screenshot-style homepage guideline strip and pinned topic cards', () => {
+  it('hides screenshot-style homepage guideline strip and real pinned topic rows', () => {
     document.body.innerHTML = `
       <main>
         <header data-testid="hero">Where possible begins</header>
@@ -213,33 +213,67 @@ describe('linux.do homepage cleanup', () => {
           </div>
         </div>
         <section class="topic-list" data-testid="topic-list">
-          <article class="topic-card" data-testid="pinned-card">
-            <h2>进一步优化对抽奖帖回复被举报的处理方式</h2>
-            <span class="status-badge">已置顶</span>
-          </article>
-          <article class="topic-card" data-testid="normal-card">
-            <h2>Normal topic</h2>
-          </article>
+          <table>
+            <tbody>
+              <tr class="topic-list-item category-feedback has-excerpt pinned tag-公告" data-testid="pinned-row">
+                <td>进一步优化对抽奖帖回复被举报的处理方式</td>
+              </tr>
+              <tr class="topic-list-item" data-testid="normal-row">
+                <td>Normal topic</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
       </main>
     `
 
-    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+    hideLinuxDoHomePageElements(document, 'https://linux.do/latest')
 
     const hero = document.querySelector<HTMLElement>('[data-testid="hero"]')
     const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
     const topicList = document.querySelector<HTMLElement>('[data-testid="topic-list"]')
-    const pinnedCard = document.querySelector<HTMLElement>('[data-testid="pinned-card"]')
-    const normalCard = document.querySelector<HTMLElement>('[data-testid="normal-card"]')
+    const pinnedRow = document.querySelector<HTMLElement>('[data-testid="pinned-row"]')
+    const normalRow = document.querySelector<HTMLElement>('[data-testid="normal-row"]')
 
     expect(hero?.style.getPropertyValue('display')).toBe('')
     expect(banner?.style.getPropertyValue('display')).toBe('none')
     expect(topicList?.style.getPropertyValue('display')).toBe('')
-    expect(pinnedCard?.style.getPropertyValue('display')).toBe('none')
-    expect(normalCard?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedRow?.style.getPropertyValue('display')).toBe('none')
+    expect(normalRow?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('does not hide homepage-only elements on non-homepage topic lists', () => {
+  it('does not hide the body or layout containers that mention topic cards', () => {
+    document.body.className = 'uc-enable-horizon-high-context-topic-cards'
+    document.body.innerHTML = `
+      <main class="topic-card-layout" data-testid="layout">
+        <table>
+          <tbody>
+            <tr class="topic-list-item category-feedback has-excerpt pinned tag-公告" data-testid="pinned-row">
+              <td><span class="topic-status-pinned">Pinned topic</span></td>
+            </tr>
+            <tr class="topic-list-item" data-testid="normal-row"><td>Normal topic</td></tr>
+          </tbody>
+        </table>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/latest')
+
+    const layout = document.querySelector<HTMLElement>('[data-testid="layout"]')
+    const pinnedRow = document.querySelector<HTMLElement>('[data-testid="pinned-row"]')
+    const normalRow = document.querySelector<HTMLElement>('[data-testid="normal-row"]')
+
+    expect(document.body.style.getPropertyValue('display')).toBe('')
+    expect(layout?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedRow?.style.getPropertyValue('display')).toBe('none')
+    expect(normalRow?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it.each([
+    'https://linux.do/c/general',
+    'https://linux.do/t/welcome/123',
+  ])('does not hide homepage-only elements on non-homepage page %s', (url) => {
+    document.body.className = ''
     document.body.innerHTML = `
       <section class="welcome-banner" data-testid="guideline-banner">
         真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》
@@ -251,7 +285,7 @@ describe('linux.do homepage cleanup', () => {
       </table>
     `
 
-    hideLinuxDoHomePageElements(document, 'https://linux.do/latest')
+    hideLinuxDoHomePageElements(document, url)
 
     const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
     const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')

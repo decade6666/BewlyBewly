@@ -46,6 +46,36 @@ Commands:
 
 ---
 
+## Content Script DOM Contracts
+
+### Linux.do homepage cleanup
+
+**Scope / Signature**: `hideLinuxDoHomePageElements(root: ParentNode, url: string): void` is a homepage-only cleanup helper for Linux.do content scripts.
+
+**Contract**:
+- Treat both `https://linux.do/` and `https://linux.do/latest` as homepage cleanup scope because the site can resolve the landing page to `/latest`.
+- Do not run homepage cleanup on category pages (`/c/...`), topic pages (`/t/...`), or other topic-list routes such as `/top` and `/hot`.
+- Match pinned topics through real Discourse table rows (`tr.topic-list-item`) instead of broad class-substring selectors.
+- Never hide `body`, page wrappers, or topic-card layout containers during pinned-topic cleanup.
+
+**Wrong**:
+```ts
+const TOPIC_ROW_SELECTOR = '[class*="topic-card" i], article'
+```
+
+**Correct**:
+```ts
+const TOPIC_ROW_SELECTOR = 'tr.topic-list-item'
+```
+
+**Tests Required**:
+- Assert `/latest` is included in homepage cleanup scope.
+- Assert pinned `tr.topic-list-item` rows are hidden and normal rows remain visible.
+- Assert `body.uc-enable-horizon-high-context-topic-cards` and layout containers are not hidden.
+- Assert category and topic pages keep homepage-only elements visible.
+
+---
+
 ## Testing Requirements
 
 - **Framework**: Vitest with jsdom environment.
