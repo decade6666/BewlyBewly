@@ -3,6 +3,7 @@ import 'uno.css'
 import { createApp } from 'vue'
 import browser from 'webextension-polyfill'
 
+import { hideLinuxDoHomePageElements } from '~/sites/linuxDo'
 import RESET_BEWLY_CSS from '~/styles/reset.css?raw'
 import { isInIframe } from '~/utils/main'
 
@@ -25,14 +26,27 @@ function isSupportedPage(): boolean {
 }
 
 function onDOMLoaded() {
-  if (isSupportedPage())
-    injectApp()
+  if (!isSupportedPage())
+    return
+
+  setupLinuxDoHomePageCleanup()
+  injectApp()
 }
 
 if (document.readyState !== 'loading')
   onDOMLoaded()
 else
   document.addEventListener('DOMContentLoaded', onDOMLoaded)
+
+function setupLinuxDoHomePageCleanup() {
+  hideLinuxDoHomePageElements(document, location.href)
+
+  const observer = new MutationObserver(() => {
+    hideLinuxDoHomePageElements(document, location.href)
+  })
+
+  observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })
+}
 
 function injectApp() {
   document.querySelectorAll('#bewly').forEach(el => el.remove())

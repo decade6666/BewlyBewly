@@ -7,6 +7,8 @@ import pkg from '../../package.json'
 import { getManifest } from '../manifest'
 import {
   findLinuxDoTopicLink,
+  hideLinuxDoHomePageElements,
+  isLinuxDoHomePage,
   isLinuxDoTopicListPage,
   normalizeLinuxDoTopicUrl,
 } from '../sites/linuxDo'
@@ -69,6 +71,20 @@ describe('linux.do discourse URL helpers', () => {
   })
 
   it.each([
+    ['https://linux.do/', true],
+    ['https://linux.do', true],
+    ['https://linux.do/?filter=unread', true],
+    ['https://linux.do/latest', false],
+    ['https://linux.do/top', false],
+    ['https://linux.do/hot', false],
+    ['https://linux.do/c/general', false],
+    ['https://linux.do/t/welcome/123', false],
+    ['https://example.com/', false],
+  ])('checks homepage scope for %s', (url, expected) => {
+    expect(isLinuxDoHomePage(url)).toBe(expected)
+  })
+
+  it.each([
     ['/t/welcome-to-linux-do/123', 'https://linux.do/t/welcome-to-linux-do/123'],
     ['https://linux.do/t/welcome-to-linux-do/123/4', 'https://linux.do/t/welcome-to-linux-do/123/4'],
     ['https://linux.do/t/welcome-to-linux-do/123?foo=bar#post-4', 'https://linux.do/t/welcome-to-linux-do/123?foo=bar#post-4'],
@@ -110,6 +126,141 @@ describe('linux.do discourse URL helpers', () => {
   })
 })
 
+describe('linux.do homepage cleanup', () => {
+  it('hides the homepage guideline banner container', () => {
+    document.body.innerHTML = `
+      <main>
+        <section class="welcome-banner" data-testid="guideline-banner">
+          <p>真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》</p>
+        </section>
+        <section data-testid="normal-section">Latest topics</section>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+    const normalSection = document.querySelector<HTMLElement>('[data-testid="normal-section"]')
+
+    expect(banner?.style.getPropertyValue('display')).toBe('none')
+    expect(banner?.style.getPropertyPriority('display')).toBe('important')
+    expect(normalSection?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides the homepage guideline banner when its text is split by nested links and whitespace', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="main-outlet" data-testid="page-wrapper">
+          <div class="custom-homepage-banner" data-testid="guideline-banner">
+            <span>真诚、友善、团结、专业，共建你我引以为荣之社区。</span>
+            <a href="/guidelines">《社区准则》</a>
+          </div>
+          <section data-testid="normal-section">Latest topics</section>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const pageWrapper = document.querySelector<HTMLElement>('[data-testid="page-wrapper"]')
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+    const normalSection = document.querySelector<HTMLElement>('[data-testid="normal-section"]')
+
+    expect(pageWrapper?.style.getPropertyValue('display')).toBe('')
+    expect(banner?.style.getPropertyValue('display')).toBe('none')
+    expect(normalSection?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides homepage pinned topic rows without hiding normal topics', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item pinned" data-testid="pinned-class"><td>Pinned by class</td></tr>
+          <tr class="topic-list-item" data-testid="pinned-icon"><td><span class="topic-status-pinned">Pinned by icon</span></td></tr>
+          <tr class="topic-list-item" data-testid="pinned-title"><td><span title="此话题已置顶">Pinned by title</span></td></tr>
+          <tr class="topic-list-item" data-testid="pinned-english-title"><td><span title="This topic is pinned">Pinned by English title</span></td></tr>
+          <tr class="topic-list-item" data-testid="pinned-svg-use"><td><svg><use href="#thumbtack"></use></svg></td></tr>
+          <tr class="topic-list-item" data-testid="normal-topic"><td>Normal topic</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const pinnedByClass = document.querySelector<HTMLElement>('[data-testid="pinned-class"]')
+    const pinnedByIcon = document.querySelector<HTMLElement>('[data-testid="pinned-icon"]')
+    const pinnedByTitle = document.querySelector<HTMLElement>('[data-testid="pinned-title"]')
+    const pinnedByEnglishTitle = document.querySelector<HTMLElement>('[data-testid="pinned-english-title"]')
+    const pinnedBySvgUse = document.querySelector<HTMLElement>('[data-testid="pinned-svg-use"]')
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
+
+    expect(pinnedByClass?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedByIcon?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedByTitle?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedByEnglishTitle?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedBySvgUse?.style.getPropertyValue('display')).toBe('none')
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides screenshot-style homepage guideline strip and pinned topic cards', () => {
+    document.body.innerHTML = `
+      <main>
+        <header data-testid="hero">Where possible begins</header>
+        <div class="site-intro-strip" data-testid="guideline-banner">
+          <div>
+            <strong>真诚、友善、团结、专业，共建你我引以为荣之社区。</strong>
+            <a href="/guidelines">《社区准则》</a>
+          </div>
+        </div>
+        <section class="topic-list" data-testid="topic-list">
+          <article class="topic-card" data-testid="pinned-card">
+            <h2>进一步优化对抽奖帖回复被举报的处理方式</h2>
+            <span class="status-badge">已置顶</span>
+          </article>
+          <article class="topic-card" data-testid="normal-card">
+            <h2>Normal topic</h2>
+          </article>
+        </section>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const hero = document.querySelector<HTMLElement>('[data-testid="hero"]')
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+    const topicList = document.querySelector<HTMLElement>('[data-testid="topic-list"]')
+    const pinnedCard = document.querySelector<HTMLElement>('[data-testid="pinned-card"]')
+    const normalCard = document.querySelector<HTMLElement>('[data-testid="normal-card"]')
+
+    expect(hero?.style.getPropertyValue('display')).toBe('')
+    expect(banner?.style.getPropertyValue('display')).toBe('none')
+    expect(topicList?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedCard?.style.getPropertyValue('display')).toBe('none')
+    expect(normalCard?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('does not hide homepage-only elements on non-homepage topic lists', () => {
+    document.body.innerHTML = `
+      <section class="welcome-banner" data-testid="guideline-banner">
+        真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》
+      </section>
+      <table>
+        <tbody>
+          <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/latest')
+
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+    const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')
+
+    expect(banner?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedTopic?.style.getPropertyValue('display')).toBe('')
+  })
+})
+
 describe('linux.do content script and drawer boundaries', () => {
   it('keeps the content script free of Bilibili DOM assumptions', async () => {
     const entrySource = await readFile(resolve('src/contentScripts/index.ts'), 'utf8')
@@ -119,6 +270,8 @@ describe('linux.do content script and drawer boundaries', () => {
 
     expect(entrySource).toContain('import browser from \'webextension-polyfill\'')
     expect(entrySource).toContain('return !isInIframe()')
+    expect(entrySource).toContain('hideLinuxDoHomePageElements(document, location.href)')
+    expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
     expect(entrySource).not.toContain('isLinuxDoTopicListPage(location.href)')
     expect(entrySource).not.toContain('import \'~/styles\'')
     expect(entrySource).not.toMatch(/setupApp|logic\/common-setup|SVG_ICONS/)
