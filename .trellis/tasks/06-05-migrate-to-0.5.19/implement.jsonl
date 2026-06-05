@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Project-wide Trellis guidance for migration work"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing project and Trellis patterns during migration"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check migration impact across generated workflow layers"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend package overview for repository-specific constraints"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend quality expectations for touched files"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "TypeScript type-safety constraints for migration fixes"}

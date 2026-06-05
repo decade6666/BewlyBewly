@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Project-wide Trellis guidance for final validation"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer validation after migration"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Quality checks for changed frontend files"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Type-safety checks for changed TypeScript files"}
