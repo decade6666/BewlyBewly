@@ -36,3 +36,36 @@ Validated the Linux.do migration follow-up: user-confirmed tests completed, lint
 ### Next Steps
 
 - None - task complete
+
+## Session 2: Migrate Trellis to v0.5.19
+
+**Date**: 2026-06-05
+**Task**: Migrate Trellis to v0.5.19
+**Branch**: `main`
+
+### Summary
+
+Migrated Trellis project scaffolding to v0.5.19, added Linux.do homepage visibility settings, verified lint/typecheck/tests, and archived the migration task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4e031a94` | (see git log) |
+| `e0525a7f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
