@@ -50,6 +50,11 @@ const PINNED_TOPIC_MARKER_SELECTOR = [
 ].join(', ')
 const PINNED_TOPIC_TEXT_MARKER_SELECTOR = 'span, div, a, button'
 const PINNED_TOPIC_TEXT_MARKER_PATTERN = /^(?:已?置顶|pinned)$/i
+const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
+const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
+const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
+
+type HomePageHiddenElementKind = 'guideline-banner' | 'pinned-topic'
 
 export function isLinuxDoTopicListPage(url: string): boolean {
   const parsedUrl = parseLinuxDoUrl(url)
@@ -71,12 +76,33 @@ export function isLinuxDoHomePage(url: string): boolean {
   return normalizePathname(parsedUrl.pathname) === ''
 }
 
-export function hideLinuxDoHomePageElements(root: ParentNode, url: string): void {
+export interface LinuxDoHomePageCleanupOptions {
+  hideGuidelineBanner: boolean
+  hidePinnedTopics: boolean
+}
+
+const DEFAULT_HOME_PAGE_CLEANUP_OPTIONS: LinuxDoHomePageCleanupOptions = {
+  hideGuidelineBanner: true,
+  hidePinnedTopics: true,
+}
+
+export function hideLinuxDoHomePageElements(
+  root: ParentNode,
+  url: string,
+  options: LinuxDoHomePageCleanupOptions = DEFAULT_HOME_PAGE_CLEANUP_OPTIONS,
+): void {
   if (!isLinuxDoHomePage(url))
     return
 
-  hideGuidelineBanner(root)
-  hidePinnedTopicRows(root)
+  if (options.hideGuidelineBanner)
+    hideGuidelineBanner(root)
+  else
+    restoreHiddenElements(root, 'guideline-banner')
+
+  if (options.hidePinnedTopics)
+    hidePinnedTopicRows(root)
+  else
+    restoreHiddenElements(root, 'pinned-topic')
 }
 
 export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string | null {
@@ -118,7 +144,7 @@ function hideGuidelineBanner(root: ParentNode): void {
   if (!guidelineTextElement)
     return
 
-  hideElement(findGuidelineBannerContainer(guidelineTextElement))
+  hideElement(findGuidelineBannerContainer(guidelineTextElement), 'guideline-banner')
 }
 
 function hasGuidelineBannerText(element: Element): boolean {
@@ -150,7 +176,7 @@ function findGuidelineBannerContainer(element: HTMLElement): HTMLElement {
 function hidePinnedTopicRows(root: ParentNode): void {
   Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ROW_SELECTOR))
     .filter(isPinnedTopicRow)
-    .forEach(hideElement)
+    .forEach(element => hideElement(element, 'pinned-topic'))
 }
 
 function isPinnedTopicRow(row: HTMLElement): boolean {
@@ -165,11 +191,36 @@ function hasPinnedTopicTextMarker(element: Element): boolean {
     && !Array.from(element.children).some(hasPinnedTopicTextMarker)
 }
 
-function hideElement(element: HTMLElement): void {
+function hideElement(element: HTMLElement, kind: HomePageHiddenElementKind): void {
+  if (element.getAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR) !== kind) {
+    element.setAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR, kind)
+    element.setAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR, element.style.getPropertyValue('display'))
+    element.setAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR, element.style.getPropertyPriority('display'))
+  }
+
   if (element.style.getPropertyValue('display') === 'none' && element.style.getPropertyPriority('display') === 'important')
     return
 
   element.style.setProperty('display', 'none', 'important')
+}
+
+function restoreHiddenElements(root: ParentNode, kind: HomePageHiddenElementKind): void {
+  Array.from(root.querySelectorAll<HTMLElement>(`[${HOME_PAGE_HIDDEN_ELEMENT_ATTR}="${kind}"]`))
+    .forEach(restoreHiddenElement)
+}
+
+function restoreHiddenElement(element: HTMLElement): void {
+  const previousDisplay = element.getAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR) ?? ''
+  const previousDisplayPriority = element.getAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR) ?? ''
+
+  if (previousDisplay)
+    element.style.setProperty('display', previousDisplay, previousDisplayPriority)
+  else
+    element.style.removeProperty('display')
+
+  element.removeAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR)
+  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR)
+  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR)
 }
 
 function normalizeTextForMatching(text: string): string {

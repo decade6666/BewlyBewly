@@ -3,6 +3,7 @@ import 'uno.css'
 import { createApp } from 'vue'
 import browser from 'webextension-polyfill'
 
+import { settings } from '~/logic'
 import { hideLinuxDoHomePageElements } from '~/sites/linuxDo'
 import RESET_BEWLY_CSS from '~/styles/reset.css?raw'
 import { isInIframe } from '~/utils/main'
@@ -39,13 +40,20 @@ else
   document.addEventListener('DOMContentLoaded', onDOMLoaded)
 
 function setupLinuxDoHomePageCleanup() {
-  hideLinuxDoHomePageElements(document, location.href)
+  cleanupLinuxDoHomePage()
 
   const observer = new MutationObserver(() => {
-    hideLinuxDoHomePageElements(document, location.href)
+    cleanupLinuxDoHomePage()
   })
 
   observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })
+}
+
+function cleanupLinuxDoHomePage() {
+  hideLinuxDoHomePageElements(document, location.href, {
+    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
+    hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  })
 }
 
 function injectApp() {

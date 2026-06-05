@@ -260,6 +260,10 @@ settings:
 
   following_tab_show_livestreaming_videos: 在 “正在关注” 中显示直播视频
 
+  group_homepage_visibility: 首页可见性
+  hide_homepage_guideline_banner: 隐藏首页社区准则横幅
+  hide_homepage_pinned_topics: 隐藏首页置顶话题
+
   use_search_page_mode: 首页使用搜索页模式
   settings_shared_with_the_search_page: 与搜索页共用的配置
   settings_shared_with_the_search_page_desc: 这些设置都与搜索页共用。

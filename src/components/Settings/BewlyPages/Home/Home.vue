@@ -372,6 +372,15 @@ function handleToggleHomeTab(tab: any) {
       </SettingsItem>
     </SettingsItemGroup>
 
+    <SettingsItemGroup :title="$t('settings.group_homepage_visibility')">
+      <SettingsItem :title="$t('settings.hide_homepage_guideline_banner')">
+        <Radio v-model="settings.hideHomePageGuidelineBanner" />
+      </SettingsItem>
+      <SettingsItem :title="$t('settings.hide_homepage_pinned_topics')">
+        <Radio v-model="settings.hideHomePagePinnedTopics" />
+      </SettingsItem>
+    </SettingsItemGroup>
+
     <SettingsItemGroup
       :title="$t('settings.group_home_tabs')"
     >
