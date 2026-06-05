@@ -69,3 +69,35 @@ Migrated Trellis project scaffolding to v0.5.19, added Linux.do homepage visibil
 ### Next Steps
 
 - None - task complete
+
+## Session 3: Write Linux.do migration plan
+
+**Date**: 2026-06-05
+**Task**: Write Linux.do migration plan
+**Branch**: `docs/migration-plan-20260605`
+
+### Summary
+
+Added a localized BewlyLinuxDo migration plan document, captured documentation-only migration plan conventions in the frontend quality spec, verified lint/typecheck, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b9707822` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
