@@ -96,6 +96,85 @@ pnpm typecheck
 
 ---
 
+## Scenario: Documentation-only Migration Plan Updates
+
+### 1. Scope / Trigger
+
+- Trigger: preserving migration, porting, or research plans as repository documentation without changing runtime behavior.
+- Applies to Markdown planning documents under `docs/` and the matching Trellis task metadata.
+
+### 2. Signatures
+
+Localized plan filename pattern:
+
+```text
+docs/<topic>-cmn_CN.md
+```
+
+Validation commands:
+
+```bash
+pnpm lint
+git diff --name-only
+git status --short --untracked-files=all
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Localized Chinese plan | Use a `-cmn_CN.md` suffix when preserving user-facing Chinese analysis instead of changing the English canonical documentation convention. |
+| Evidence scope | Include local source paths and external URLs used as evidence. |
+| Validation boundaries | Mark failed or blocked external fetches as unverified; do not promote them to stable API assumptions. |
+| Runtime behavior | Documentation-only tasks must not modify `src/`, build config, extension permissions, or storage schemas. |
+| Task metadata | Keep Trellis JSON/JSONL metadata lint-clean and remove template `_example` rows before finish-work. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| The plan is Chinese user-facing content | Use `docs/<topic>-cmn_CN.md` and keep `.trellis/spec/frontend/index.md` English-doc convention unchanged. |
+| External endpoint fetch failed or was blocked by Cloudflare/Turnstile | Document the failure as a validation boundary and require real-browser verification before implementation. |
+| Source files appear in `git diff --name-only` for a docs-only task | Stop and review scope; remove unrelated behavior changes unless a new task explicitly authorizes them. |
+| Trellis JSONL still contains `_example` template rows | Delete the template rows and keep only task-specific implementation/check records. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `docs/bewly-linux-do-migration-plan-cmn_CN.md` lists source paths, external URLs, failed `latest.json` / `top.json` boundaries, and no source files changed.
+- Base: a docs-only plan passes `pnpm lint` and `git diff --name-only` shows only docs and Trellis metadata.
+- Bad: an unsuffixed Chinese plan looks like canonical English docs, or a failed endpoint is described as a verified contract.
+
+### 6. Tests Required
+
+- `pnpm lint`: assert Markdown and Trellis metadata are lint-clean.
+- `git diff --name-only`: assert no source/runtime files changed for documentation-only tasks.
+- `git status --short --untracked-files=all`: assert the new plan and task metadata are the only relevant untracked paths before staging.
+- Manual document review: assert the plan includes priority, roadmap, evidence paths, external URLs, non-goals, and validation boundaries.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```text
+docs/bewly-linux-do-migration-plan.md
+```
+
+```markdown
+`https://linux.do/latest.json` is available for the migration.
+```
+
+#### Correct
+
+```text
+docs/bewly-linux-do-migration-plan-cmn_CN.md
+```
+
+```markdown
+`https://linux.do/latest.json` was blocked during extraction and must be verified in a real browser session before implementation.
+```
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.
