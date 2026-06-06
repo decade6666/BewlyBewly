@@ -175,6 +175,93 @@ docs/bewly-linux-do-migration-plan-cmn_CN.md
 
 ---
 
+## Scenario: Local Chromium Artifact Generation
+
+### 1. Scope / Trigger
+
+- Trigger: generating a local downloadable artifact for Chrome/Edge testing.
+- Applies to ignored local build outputs: `extension/` and `extension.zip`.
+
+### 2. Signatures
+
+Build and package commands:
+
+```bash
+pnpm build
+pnpm pack:zip
+```
+
+Expected artifact paths:
+
+```text
+extension/
+extension/manifest.json
+extension.zip
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| `pnpm build` | Builds the Chromium extension directory at `extension/`. |
+| `pnpm pack:zip` | Packs `extension/*` into `extension.zip`; run it after `pnpm build`. |
+| Chrome/Edge ZIP | Use `extension.zip` as the downloadable Windows test artifact. |
+| Manifest | `extension/manifest.json` must exist after build and describe a Manifest V3 extension. |
+| Git scope | `extension/` and `extension.zip` are ignored generated artifacts and must not be committed. |
+| Firefox/Safari outputs | Do not generate them unless the task explicitly requests Firefox or Safari testing. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| `extension.zip` is missing or zero bytes | Re-run `pnpm build` then `pnpm pack:zip`; do not report a downloadable artifact. |
+| `extension/manifest.json` is missing | Treat the build as failed even if a ZIP exists. |
+| ZIP integrity fails | Re-run packaging and verify with `unzip -tq extension.zip`. |
+| `git status` shows `extension/` or `extension.zip` as unignored | Fix ignore rules before committing any task metadata. |
+| User asks for Windows Chrome/Edge testing | Provide `extension.zip` path, byte size, SHA256, and brief Chrome/Edge install steps. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `pnpm build`, `pnpm pack:zip`, `unzip -tq extension.zip`, `pnpm lint`, and `pnpm typecheck` pass; final response includes path, size, and SHA256.
+- Base: artifact generation succeeds and `git diff --name-only` shows no tracked source/config changes.
+- Bad: reporting `extension-firefox.zip` or `.xpi` for a Chrome/Edge Windows test, or committing ignored generated artifacts.
+
+### 6. Tests Required
+
+- `pnpm build`: assert the Chromium build completes and creates `extension/`.
+- `pnpm pack:zip`: assert `extension.zip` is created from the latest `extension/` build.
+- `unzip -tq extension.zip`: assert ZIP integrity.
+- Filesystem checks: assert `extension.zip` is non-empty and `extension/manifest.json` exists.
+- `sha256sum extension.zip`: record checksum for Windows download verification.
+- `git diff --name-only` and `git diff --cached --name-only`: assert no tracked source/config changes were introduced by packaging.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```bash
+pnpm pack:zip
+```
+
+```text
+Tell the user to download extension-firefox.zip for Chrome testing.
+```
+
+#### Correct
+
+```bash
+pnpm build
+pnpm pack:zip
+unzip -tq extension.zip
+sha256sum extension.zip
+```
+
+```text
+/root/github/BewlyLinuxDo/extension.zip
+```
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.
