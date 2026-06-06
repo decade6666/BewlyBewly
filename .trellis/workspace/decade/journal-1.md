@@ -165,3 +165,35 @@ Fixed Linux.do iframe drawer controls and URL history sync, removed copy-link ac
 ### Next Steps
 
 - None - task complete
+
+## Session 6: Generate Linux.do extension artifact
+
+**Date**: 2026-06-06
+**Task**: Generate Linux.do extension artifact
+**Branch**: `fix/linux-do-wrapper-drawer`
+
+### Summary
+
+Generated Chromium extension artifact with pnpm build and pnpm pack:zip, validated extension.zip integrity and Linux.do Manifest V3 scope, committed the regenerated extension.zip artifact, and prepared the branch for push.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9783ee5d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
