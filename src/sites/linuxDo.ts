@@ -1,31 +1,8 @@
 const LINUX_DO_ORIGIN = 'https://linux.do'
-const LINUX_DO_GUIDELINE_BANNER_TEXT = '真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》'
 const TOPIC_LIST_PATHS = new Set(['', '/latest', '/top', '/hot'])
 const HOME_PAGE_PATHS = new Set(['', '/latest'])
 const CATEGORY_PATH_PATTERN = /^\/c(?:\/[^/]+)+$/
 const TOPIC_PATH_PATTERN = /^\/t\/[^/]+\/\d+(?:\/\d+)?$/
-const GUIDELINE_TEXT_SELECTOR = [
-  '[role="banner"]',
-  '.welcome-banner',
-  '.discourse-banner',
-  '.custom-homepage-banner',
-  '.banner',
-  '.notice',
-  '.alert',
-  'section',
-  'div',
-  'p',
-].join(', ')
-const GUIDELINE_CONTAINER_SELECTOR = [
-  '[role="banner"]',
-  '.welcome-banner',
-  '.discourse-banner',
-  '.custom-homepage-banner',
-  '.banner',
-  '.notice',
-  '.alert',
-  'section',
-].join(', ')
 // Linux.do body classes can include topic-card tokens, so constrain hiding to topic list items.
 const TOPIC_ITEM_SELECTOR = [
   'tr.topic-list-item',
@@ -69,7 +46,7 @@ const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
 const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
 const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
 
-type HomePageHiddenElementKind = 'guideline-banner' | 'pinned-topic'
+type HomePageHiddenElementKind = 'pinned-topic'
 
 export function isLinuxDoTopicListPage(url: string): boolean {
   const parsedUrl = parseLinuxDoUrl(url)
@@ -92,12 +69,10 @@ export function isLinuxDoHomePage(url: string): boolean {
 }
 
 export interface LinuxDoHomePageCleanupOptions {
-  hideGuidelineBanner: boolean
   hidePinnedTopics: boolean
 }
 
 const DEFAULT_HOME_PAGE_CLEANUP_OPTIONS: LinuxDoHomePageCleanupOptions = {
-  hideGuidelineBanner: true,
   hidePinnedTopics: true,
 }
 
@@ -108,11 +83,6 @@ export function hideLinuxDoHomePageElements(
 ): void {
   if (!isLinuxDoHomePage(url))
     return
-
-  if (options.hideGuidelineBanner)
-    hideGuidelineBanner(root)
-  else
-    restoreHiddenElements(root, 'guideline-banner')
 
   if (options.hidePinnedTopics)
     hidePinnedTopicRows(root)
@@ -149,43 +119,6 @@ export function findLinuxDoTopicLink(target: EventTarget | null, baseUrl: string
     return null
 
   return normalizeLinuxDoTopicUrl(href, baseUrl)
-}
-
-function hideGuidelineBanner(root: ParentNode): void {
-  const guidelineTextElement = Array.from(root.querySelectorAll<HTMLElement>(GUIDELINE_TEXT_SELECTOR))
-    .filter(hasGuidelineBannerText)
-    .find(element => !Array.from(element.children).some(hasGuidelineBannerText))
-
-  if (!guidelineTextElement)
-    return
-
-  hideElement(findGuidelineBannerContainer(guidelineTextElement), 'guideline-banner')
-}
-
-function hasGuidelineBannerText(element: Element): boolean {
-  return normalizeTextForMatching(element.textContent ?? '').includes(normalizeTextForMatching(LINUX_DO_GUIDELINE_BANNER_TEXT))
-}
-
-function findGuidelineBannerContainer(element: HTMLElement): HTMLElement {
-  let container = element
-  let containerText = normalizeTextForMatching(container.textContent ?? '')
-
-  for (let parent = container.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-    const parentText = normalizeTextForMatching(parent.textContent ?? '')
-
-    if (parentText !== containerText)
-      break
-
-    container = parent
-    containerText = parentText
-  }
-
-  const explicitContainer = element.closest<HTMLElement>(GUIDELINE_CONTAINER_SELECTOR)
-
-  if (explicitContainer && normalizeTextForMatching(explicitContainer.textContent ?? '') === containerText)
-    return explicitContainer
-
-  return container
 }
 
 function hidePinnedTopicRows(root: ParentNode): void {

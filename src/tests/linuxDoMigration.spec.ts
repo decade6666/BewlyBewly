@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import pkg from '../../package.json'
+import { cleanLegacySettingsStorageValue, removeLegacySettingsFields } from '../logic/settingsMigration'
 import { getManifest } from '../manifest'
 import {
   findLinuxDoTopicLink,
@@ -51,6 +52,51 @@ describe('linux.do migration manifest and package metadata', () => {
     expect(pkg.description).not.toMatch(blockedLegacyTargets)
     expect(pkg.homepage).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(pkg.webExt.run.startUrl).toEqual(['https://linux.do/'])
+  })
+})
+
+describe('settings legacy field cleanup', () => {
+  it('removes the legacy guideline banner setting without dropping other values', () => {
+    const legacySettings = {
+      hideHomePageGuidelineBanner: false,
+      hideHomePagePinnedTopics: false,
+      language: 'en',
+    }
+
+    const cleanedSettings = removeLegacySettingsFields(legacySettings)
+
+    expect(cleanedSettings).toEqual({
+      hideHomePagePinnedTopics: false,
+      language: 'en',
+    })
+    expect(cleanedSettings).not.toHaveProperty('hideHomePageGuidelineBanner')
+  })
+
+  it('cleans object-shaped browser-local settings values as serialized VueUse storage values', () => {
+    const legacySettings = {
+      hideHomePageGuidelineBanner: true,
+      hideHomePagePinnedTopics: false,
+      theme: 'dark',
+    }
+
+    expect(cleanLegacySettingsStorageValue(legacySettings)).toBe(JSON.stringify({
+      hideHomePagePinnedTopics: false,
+      theme: 'dark',
+    }))
+  })
+
+  it('cleans serialized browser-local settings values', () => {
+    const serializedSettings = JSON.stringify({
+      hideHomePageGuidelineBanner: true,
+      hideHomePagePinnedTopics: false,
+      theme: 'dark',
+    })
+
+    expect(cleanLegacySettingsStorageValue(serializedSettings)).toBe(JSON.stringify({
+      hideHomePagePinnedTopics: false,
+      theme: 'dark',
+    }))
+    expect(cleanLegacySettingsStorageValue('not-json')).toBe('not-json')
   })
 })
 
@@ -132,27 +178,34 @@ describe('linux.do discourse URL helpers', () => {
 })
 
 describe('linux.do homepage cleanup', () => {
-  it('hides the homepage guideline banner container', () => {
+  it('keeps the homepage guideline banner visible by default while hiding pinned topics', () => {
     document.body.innerHTML = `
       <main>
         <section class="welcome-banner" data-testid="guideline-banner">
           <p>真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》</p>
         </section>
-        <section data-testid="normal-section">Latest topics</section>
+        <table>
+          <tbody>
+            <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+            <tr class="topic-list-item" data-testid="normal-topic"><td>Normal topic</td></tr>
+          </tbody>
+        </table>
       </main>
     `
 
     hideLinuxDoHomePageElements(document, 'https://linux.do/')
 
     const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
-    const normalSection = document.querySelector<HTMLElement>('[data-testid="normal-section"]')
+    const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
 
-    expect(banner?.style.getPropertyValue('display')).toBe('none')
-    expect(banner?.style.getPropertyPriority('display')).toBe('important')
-    expect(normalSection?.style.getPropertyValue('display')).toBe('')
+    expect(banner?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedTopic?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedTopic?.style.getPropertyPriority('display')).toBe('important')
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('hides the homepage guideline banner when its text is split by nested links and whitespace', () => {
+  it('keeps split guideline banner text visible while hiding homepage pinned topics', () => {
     document.body.innerHTML = `
       <main>
         <div id="main-outlet" data-testid="page-wrapper">
@@ -160,7 +213,11 @@ describe('linux.do homepage cleanup', () => {
             <span>真诚、友善、团结、专业，共建你我引以为荣之社区。</span>
             <a href="/guidelines">《社区准则》</a>
           </div>
-          <section data-testid="normal-section">Latest topics</section>
+          <table>
+            <tbody>
+              <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+            </tbody>
+          </table>
         </div>
       </main>
     `
@@ -169,11 +226,11 @@ describe('linux.do homepage cleanup', () => {
 
     const pageWrapper = document.querySelector<HTMLElement>('[data-testid="page-wrapper"]')
     const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
-    const normalSection = document.querySelector<HTMLElement>('[data-testid="normal-section"]')
+    const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')
 
     expect(pageWrapper?.style.getPropertyValue('display')).toBe('')
-    expect(banner?.style.getPropertyValue('display')).toBe('none')
-    expect(normalSection?.style.getPropertyValue('display')).toBe('')
+    expect(banner?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedTopic?.style.getPropertyValue('display')).toBe('none')
   })
 
   it('hides /latest pinned topic rows without hiding normal topics', () => {
@@ -184,6 +241,8 @@ describe('linux.do homepage cleanup', () => {
           <tr class="topic-list-item" data-testid="pinned-icon"><td><span class="topic-status-pinned">Pinned by icon</span></td></tr>
           <tr class="topic-list-item" data-testid="pinned-title"><td><span title="此话题已置顶">Pinned by title</span></td></tr>
           <tr class="topic-list-item" data-testid="pinned-english-title"><td><span title="This topic is pinned">Pinned by English title</span></td></tr>
+          <tr class="topic-list-item" data-testid="pinned-aria"><td><span aria-label="此话题已置顶">Pinned by aria</span></td></tr>
+          <tr class="topic-list-item" data-testid="pinned-text-marker"><td><span>置顶</span></td></tr>
           <tr class="topic-list-item" data-testid="pinned-svg-use"><td><svg><use href="#thumbtack"></use></svg></td></tr>
           <tr class="topic-list-item" data-testid="normal-topic"><td>Normal topic</td></tr>
         </tbody>
@@ -196,6 +255,8 @@ describe('linux.do homepage cleanup', () => {
     const pinnedByIcon = document.querySelector<HTMLElement>('[data-testid="pinned-icon"]')
     const pinnedByTitle = document.querySelector<HTMLElement>('[data-testid="pinned-title"]')
     const pinnedByEnglishTitle = document.querySelector<HTMLElement>('[data-testid="pinned-english-title"]')
+    const pinnedByAria = document.querySelector<HTMLElement>('[data-testid="pinned-aria"]')
+    const pinnedByTextMarker = document.querySelector<HTMLElement>('[data-testid="pinned-text-marker"]')
     const pinnedBySvgUse = document.querySelector<HTMLElement>('[data-testid="pinned-svg-use"]')
     const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
 
@@ -203,6 +264,8 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedByIcon?.style.getPropertyValue('display')).toBe('none')
     expect(pinnedByTitle?.style.getPropertyValue('display')).toBe('none')
     expect(pinnedByEnglishTitle?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedByAria?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedByTextMarker?.style.getPropertyValue('display')).toBe('none')
     expect(pinnedBySvgUse?.style.getPropertyValue('display')).toBe('none')
     expect(normalTopic?.style.getPropertyValue('display')).toBe('')
   })
@@ -235,7 +298,7 @@ describe('linux.do homepage cleanup', () => {
     expect(normalCard?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('keeps the homepage guideline banner visible when banner cleanup is disabled', () => {
+  it('keeps the homepage guideline banner visible when pinned topic cleanup is enabled', () => {
     document.body.innerHTML = `
       <main>
         <section class="welcome-banner" data-testid="guideline-banner">
@@ -250,7 +313,6 @@ describe('linux.do homepage cleanup', () => {
     `
 
     hideLinuxDoHomePageElements(document, 'https://linux.do/', {
-      hideGuidelineBanner: false,
       hidePinnedTopics: true,
     })
 
@@ -276,18 +338,17 @@ describe('linux.do homepage cleanup', () => {
     `
 
     hideLinuxDoHomePageElements(document, 'https://linux.do/', {
-      hideGuidelineBanner: true,
       hidePinnedTopics: false,
     })
 
     const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
     const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')
 
-    expect(banner?.style.getPropertyValue('display')).toBe('none')
+    expect(banner?.style.getPropertyValue('display')).toBe('')
     expect(pinnedTopic?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('restores homepage cleanup elements when cleanup is disabled after hiding', () => {
+  it('restores homepage pinned topics when cleanup is disabled after hiding', () => {
     document.body.innerHTML = `
       <main>
         <section class="welcome-banner" data-testid="guideline-banner" style="display: block;">
@@ -303,7 +364,6 @@ describe('linux.do homepage cleanup', () => {
 
     hideLinuxDoHomePageElements(document, 'https://linux.do/')
     hideLinuxDoHomePageElements(document, 'https://linux.do/', {
-      hideGuidelineBanner: false,
       hidePinnedTopics: false,
     })
 
@@ -314,7 +374,7 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedTopic?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('hides screenshot-style homepage guideline strip and real pinned topic rows', () => {
+  it('keeps screenshot-style homepage guideline strip visible while hiding real pinned topic rows', () => {
     document.body.innerHTML = `
       <main>
         <header data-testid="hero">Where possible begins</header>
@@ -348,7 +408,7 @@ describe('linux.do homepage cleanup', () => {
     const normalRow = document.querySelector<HTMLElement>('[data-testid="normal-row"]')
 
     expect(hero?.style.getPropertyValue('display')).toBe('')
-    expect(banner?.style.getPropertyValue('display')).toBe('none')
+    expect(banner?.style.getPropertyValue('display')).toBe('')
     expect(topicList?.style.getPropertyValue('display')).toBe('')
     expect(pinnedRow?.style.getPropertyValue('display')).toBe('none')
     expect(normalRow?.style.getPropertyValue('display')).toBe('')
@@ -419,10 +479,12 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('import { settings } from \'~/logic\'')
     expect(entrySource).toContain('return !isInIframe()')
     expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {')
-    expect(entrySource).toContain('hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner')
     expect(entrySource).toContain('hidePinnedTopics: settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).not.toContain('hideGuidelineBanner')
+    expect(entrySource).not.toContain('hideHomePageGuidelineBanner')
     expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
     expect(entrySource).toContain('watch(')
+    expect(entrySource).toContain('() => settings.value.hideHomePagePinnedTopics')
     expect(entrySource).not.toContain('isLinuxDoTopicListPage(location.href)')
     expect(entrySource).not.toContain('import \'~/styles\'')
     expect(entrySource).not.toMatch(/setupApp|logic\/common-setup|SVG_ICONS/)
@@ -432,10 +494,29 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
     expect(appSource).toContain('class="linux-do-settings-button"')
     expect(appSource).toContain('settings.hideHomePagePinnedTopics')
+    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
     expect(appSource).toContain('import IframeDrawer from \'~/components/IframeDrawer.vue\'')
     expect(drawerSource).toContain('import Button from \'~/components/Button.vue\'')
     expect(source).not.toMatch(blockedLegacyTargets)
     expect(source).not.toMatch(/bili-header|home-redesign-base|bilibili-gate-root/i)
+  })
+
+  it('removes guideline banner controls, locale keys, and settings defaults', async () => {
+    const homeSettingsSource = await readFile(resolve('src/components/Settings/BewlyPages/Home/Home.vue'), 'utf8')
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const storageSource = await readFile(resolve('src/logic/storage.ts'), 'utf8')
+    const migrationSource = await readFile(resolve('src/logic/settingsMigration.ts'), 'utf8')
+    const enLocaleSource = await readFile(resolve('src/_locales/en.yml'), 'utf8')
+    const cmnCNLocaleSource = await readFile(resolve('src/_locales/cmn-CN.yml'), 'utf8')
+
+    expect(homeSettingsSource).not.toMatch(/hide_homepage_guideline_banner|hideHomePageGuidelineBanner/)
+    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
+    expect(storageSource).not.toContain('hideHomePageGuidelineBanner')
+    expect(storageSource).toContain('void cleanupLegacySettingsStorage()')
+    expect(storageSource).toContain('cleanLegacySettingsStorageValue(storedSettings)')
+    expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\'] as const')
+    expect(enLocaleSource).not.toContain('hide_homepage_guideline_banner')
+    expect(cmnCNLocaleSource).not.toContain('hide_homepage_guideline_banner')
   })
 
   it('renders the full-screen wrapper only when the iframe drawer is open', async () => {

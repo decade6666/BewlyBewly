@@ -14,9 +14,9 @@ This project stores extension settings in `src/logic/storage.ts` and exposes the
 
 ### 1. Scope / Trigger
 
-- Trigger: adding or changing settings that control Linux.do homepage DOM cleanup behavior.
+- Trigger: adding, changing, or removing settings that control Linux.do homepage DOM cleanup behavior.
 - Applies when a setting crosses these layers: storage defaults → settings UI → content script → site-specific DOM helper → regression tests.
-- This is a cross-layer contract because the UI field names and content-script option names intentionally differ.
+- This is a cross-layer contract because persisted UI setting names and site-helper option names are intentionally mapped at the content-script boundary.
 
 ### 2. Signatures
 
@@ -24,7 +24,6 @@ Settings storage fields:
 
 ```typescript
 interface Settings {
-  hideHomePageGuidelineBanner: boolean
   hideHomePagePinnedTopics: boolean
 }
 ```
@@ -33,7 +32,6 @@ Site cleanup option fields:
 
 ```typescript
 interface LinuxDoHomePageCleanupOptions {
-  hideGuidelineBanner: boolean
   hidePinnedTopics: boolean
 }
 
@@ -44,20 +42,28 @@ function hideLinuxDoHomePageElements(
 ): void
 ```
 
+Legacy settings cleanup:
+
+```typescript
+const LEGACY_SETTINGS_KEYS = ['hideHomePageGuidelineBanner'] as const
+
+function cleanLegacySettingsStorageValue(value: unknown): unknown
+function removeLegacySettingsFields<T extends object>(value: T): Omit<T, 'hideHomePageGuidelineBanner'>
+```
+
 ### 3. Contracts
 
 | Field | Layer | Type | Default | Purpose |
 |---|---|---:|---:|---|
-| `hideHomePageGuidelineBanner` | `Settings` | `boolean` | `true` | Persisted user preference for hiding the Linux.do homepage guideline banner. |
 | `hideHomePagePinnedTopics` | `Settings` | `boolean` | `true` | Persisted user preference for hiding Linux.do homepage pinned topics. |
-| `hideGuidelineBanner` | `LinuxDoHomePageCleanupOptions` | `boolean` | `true` | Runtime DOM cleanup switch consumed by `hideLinuxDoHomePageElements`. |
 | `hidePinnedTopics` | `LinuxDoHomePageCleanupOptions` | `boolean` | `true` | Runtime DOM cleanup switch consumed by `hideLinuxDoHomePageElements`. |
+| `hideHomePageGuidelineBanner` | Legacy storage cleanup | `boolean` | n/a | Deprecated persisted field that must be removed from browser-local `settings` without dropping other values. |
+| cleaned browser-local `settings` | Legacy storage cleanup output | `string` | n/a | `useStorageAsync` expects serialized storage values, so cleanup must write a JSON string even when the old raw value is object-shaped. |
 
 The content script is the boundary mapper:
 
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
-  hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
 })
 ```
@@ -67,25 +73,30 @@ hideLinuxDoHomePageElements(document, location.href, {
 | Condition | Expected behavior |
 |---|---|
 | URL is not the Linux.do homepage | Return without changing DOM, regardless of option values. |
-| `hideGuidelineBanner` is `false` | Leave guideline banner display untouched. |
 | `hidePinnedTopics` is `false` | Leave pinned topic display untouched. |
-| `options` is omitted | Use default cleanup behavior: hide both guideline banner and pinned topics. |
-| A cleanup option changes from `true` to `false` after elements were hidden | Restore only elements hidden by Bewly cleanup and preserve their previous inline `display` value. |
+| `options` is omitted | Use default cleanup behavior: hide pinned topics only. |
+| Pinned topic cleanup changes from `true` to `false` after rows/cards were hidden | Restore only pinned topic elements hidden by Bewly cleanup and preserve their previous inline `display` value. |
+| Guideline banner contains `《社区准则》` text on the homepage | Leave the banner untouched; guideline banner cleanup is not a supported feature. |
+| Browser-local `settings` contains `hideHomePageGuidelineBanner` | Remove only that key and preserve all other stored setting values. |
+| Browser-local `settings` cleanup receives an object-shaped raw value | Return a JSON string of the cleaned object before writing back, so VueUse object serializer can read it on the next load. |
 | New persisted setting lacks a default in `originalSettings` | Typecheck or regression tests should fail; add the default before shipping. |
 | Locale key missing for a new settings label | UI text will be incomplete; add keys in both `src/_locales/en.yml` and `src/_locales/cmn-CN.yml`. |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: a new homepage cleanup setting is added to `Settings`, `originalSettings`, both locale files, the settings UI, the content-script mapper, the site helper options, and regression tests.
-- Base: a site helper option defaults to preserving existing behavior when older call sites omit options.
-- Bad: the content script reads `settings.value` but passes storage field names directly to `hideLinuxDoHomePageElements`, leaking storage naming into the site helper contract.
+- Base: a removed homepage cleanup setting also removes UI, locale keys, content-script mapping, helper logic, docs, and cleans its legacy stored field when applicable.
+- Bad: the content script reads `settings.value` but passes the whole persisted settings object directly to `hideLinuxDoHomePageElements`, leaking storage naming into the site helper contract.
+- Bad: legacy cleanup writes an object directly to browser-local `settings`, causing the next `useStorageAsync` read to pass a non-string value into `JSON.parse`.
 
 ### 6. Tests Required
 
-- Unit/regression tests for `hideLinuxDoHomePageElements` must assert each option can independently keep the corresponding DOM element visible.
-- Regression tests must assert disabling cleanup after an earlier hide restores only Bewly-hidden elements and preserves previous inline `display` values.
-- Boundary tests should assert `src/contentScripts/index.ts` maps `settings.value.hideHomePageGuidelineBanner` to `hideGuidelineBanner` and `settings.value.hideHomePagePinnedTopics` to `hidePinnedTopics`.
-- Existing homepage cleanup tests must continue to assert the default behavior hides both elements.
+- Unit/regression tests for `hideLinuxDoHomePageElements` must assert pinned topics hide by default and can stay visible when `hidePinnedTopics` is `false`.
+- Regression tests must assert disabling cleanup after an earlier hide restores only Bewly-hidden pinned topics and preserves previous inline `display` values.
+- Regression tests must assert guideline banner elements remain visible on homepage cleanup runs.
+- Boundary tests should assert `src/contentScripts/index.ts` maps `settings.value.hideHomePagePinnedTopics` to `hidePinnedTopics` and does not reference `hideHomePageGuidelineBanner` or `hideGuidelineBanner`.
+- Storage migration tests should assert legacy `hideHomePageGuidelineBanner` is removed from stored settings while unrelated values are preserved.
+- Storage migration tests should assert object-shaped legacy raw values are cleaned into serialized JSON strings for VueUse compatibility.
 - Run `pnpm typecheck` so missing `Settings` fields/defaults are caught.
 
 ### 7. Wrong vs Correct
@@ -102,7 +113,6 @@ This couples the site helper to the persisted storage schema and makes future st
 
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
-  hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
 })
 ```
@@ -216,7 +226,6 @@ function cleanupLinuxDoHomePage(): void
 ```typescript
 function cleanupLinuxDoHomePage() {
   hideLinuxDoHomePageElements(document, location.href, {
-    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
   })
 }
@@ -229,7 +238,6 @@ When the drawer pushes a topic URL into the address bar, this makes homepage cle
 ```typescript
 function cleanupLinuxDoHomePage() {
   hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
-    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
   })
 }

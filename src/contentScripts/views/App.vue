@@ -23,7 +23,6 @@ interface LinuxDoDrawerRouteChangeDetail {
 const appMessages = {
   en: {
     closeSettings: 'Close settings',
-    hideGuidelineBanner: 'Hide homepage guideline banner',
     hidePinnedTopics: 'Hide homepage pinned topics',
     openSettings: 'Open Linux.do settings',
     settings: 'Linux.do settings',
@@ -31,7 +30,6 @@ const appMessages = {
   },
   'cmn-CN': {
     closeSettings: '关闭设置',
-    hideGuidelineBanner: '隐藏首页社区准则横幅',
     hidePinnedTopics: '隐藏首页置顶话题',
     openSettings: '打开 Linux.do 设置',
     settings: 'Linux.do 设置',
@@ -39,7 +37,6 @@ const appMessages = {
   },
   'cmn-TW': {
     closeSettings: '關閉設定',
-    hideGuidelineBanner: '隱藏首頁社群準則橫幅',
     hidePinnedTopics: '隱藏首頁置頂話題',
     openSettings: '開啟 Linux.do 設定',
     settings: 'Linux.do 設定',
@@ -47,7 +44,6 @@ const appMessages = {
   },
   jyut: {
     closeSettings: '關閉設定',
-    hideGuidelineBanner: '收埋首頁社群準則橫幅',
     hidePinnedTopics: '收埋首頁置頂話題',
     openSettings: '打開 Linux.do 設定',
     settings: 'Linux.do 設定',
@@ -247,10 +243,6 @@ onBeforeUnmount(() => {
         </button>
       </header>
 
-      <label class="linux-do-settings-option">
-        <input v-model="settings.hideHomePageGuidelineBanner" type="checkbox">
-        <span>{{ appLabels.hideGuidelineBanner }}</span>
-      </label>
       <label class="linux-do-settings-option">
         <input v-model="settings.hideHomePagePinnedTopics" type="checkbox">
         <span>{{ appLabels.hidePinnedTopics }}</span>

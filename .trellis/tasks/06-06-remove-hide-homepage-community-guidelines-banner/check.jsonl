@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Review Linux.do floating settings panel changes"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Review settings cleanup and homepage DOM cleanup behavior"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Review required tests and validation evidence"}

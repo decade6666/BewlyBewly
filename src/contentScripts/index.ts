@@ -56,7 +56,7 @@ function setupLinuxDoHomePageCleanup() {
   observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })
   window.addEventListener(LINUX_DO_DRAWER_ROUTE_CHANGE, handleLinuxDoDrawerRouteChange)
   watch(
-    () => [settings.value.hideHomePageGuidelineBanner, settings.value.hideHomePagePinnedTopics],
+    () => settings.value.hideHomePagePinnedTopics,
     () => cleanupLinuxDoHomePage(),
   )
 }
@@ -69,7 +69,6 @@ function handleLinuxDoDrawerRouteChange(event: Event) {
 
 function cleanupLinuxDoHomePage() {
   hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
-    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
   })
 }

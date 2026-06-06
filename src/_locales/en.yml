@@ -266,7 +266,6 @@ settings:
   following_tab_show_livestreaming_videos: Show Live-streaming videos in the "Following" tab
 
   group_homepage_visibility: Homepage visibility
-  hide_homepage_guideline_banner: Hide homepage guideline banner
   hide_homepage_pinned_topics: Hide homepage pinned topics
 
   use_search_page_mode: Use search page mode on homepage

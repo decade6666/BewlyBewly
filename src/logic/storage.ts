@@ -1,7 +1,13 @@
+import { storage } from 'webextension-polyfill'
+
 import { useStorageLocal } from '~/composables/useStorageLocal'
 import type { wallpaperItem } from '~/constants/imgs'
 import type { HomeSubPage } from '~/contentScripts/views/Home/types'
 import type { AppPage } from '~/enums/appEnums'
+
+import { cleanLegacySettingsStorageValue, hasLegacySettingsFields, removeLegacySettingsFields } from './settingsMigration'
+
+const SETTINGS_STORAGE_KEY = 'settings'
 
 export const storageDemo = useStorageLocal('webext-demo', 'Storage Demo')
 export const accessKey = useStorageLocal('accessKey', '')
@@ -104,7 +110,6 @@ export interface Settings {
   alwaysShowTabsOnHomePage: boolean
   useSearchPageModeOnHomePage: boolean
   searchPageModeWallpaperFixed: boolean
-  hideHomePageGuidelineBanner: boolean
   hideHomePagePinnedTopics: boolean
 
   adaptToOtherPageStyles: boolean
@@ -210,7 +215,6 @@ export const originalSettings: Settings = {
   alwaysShowTabsOnHomePage: false,
   useSearchPageModeOnHomePage: false,
   searchPageModeWallpaperFixed: false,
-  hideHomePageGuidelineBanner: true,
   hideHomePagePinnedTopics: true,
 
   adaptToOtherPageStyles: true,
@@ -219,7 +223,35 @@ export const originalSettings: Settings = {
   useOriginalBilibiliHomepage: false,
 }
 
-export const settings = useStorageLocal('settings', ref<Settings>(originalSettings), { mergeDefaults: true })
+export async function cleanupLegacySettingsStorage(): Promise<void> {
+  try {
+    const storedSettings = (await storage.local.get(SETTINGS_STORAGE_KEY))[SETTINGS_STORAGE_KEY]
+    const cleanedSettings = cleanLegacySettingsStorageValue(storedSettings)
+
+    if (cleanedSettings === storedSettings)
+      return
+
+    await storage.local.set({ [SETTINGS_STORAGE_KEY]: cleanedSettings })
+  }
+  catch (error) {
+    console.error('Failed to clean legacy settings storage:', error)
+  }
+}
+
+export const settings = useStorageLocal(SETTINGS_STORAGE_KEY, ref<Settings>(originalSettings), { mergeDefaults: true })
+
+void cleanupLegacySettingsStorage()
+
+watch(
+  () => settings.value,
+  (value) => {
+    if (!hasLegacySettingsFields(value))
+      return
+
+    settings.value = removeLegacySettingsFields(value) as Settings
+  },
+  { deep: true, immediate: true },
+)
 
 export type GridLayoutType = 'adaptive' | 'twoColumns' | 'oneColumn'
 

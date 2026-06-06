@@ -69,15 +69,14 @@
 | 功能 | 文件 | 实现方式 |
 |------|------|----------|
 | URL 识别（首页/话题列表/话题/分类） | `src/sites/linuxDo.ts` | 正则匹配 `isLinuxDoHomePage`、`isLinuxDoTopicListPage`、`normalizeLinuxDoTopicUrl` |
-| 首页 guideline banner 隐藏 | `src/sites/linuxDo.ts` | DOM 查询 + `display: none !important`，保留恢复能力 |
-| 首页置顶话题隐藏 | `src/sites/linuxDo.ts` | 多选择器策略（class/attr/aria/text），支持中英文置顶标记 |
+| 首页置顶话题隐藏 | `src/sites/linuxDo.ts` | 多选择器策略（class/attr/aria/text），支持中英文置顶标记，保留恢复能力 |
 | MutationObserver 清理 | `src/contentScripts/index.ts` | 监听 `document.body` 变更，自动重执行隐藏逻辑 |
 | Shadow DOM 注入 | `src/contentScripts/index.ts` | 创建 `#bewly` 容器，attachShadow 注入 App |
 | 话题点击拦截 | `src/contentScripts/views/App.vue` | capture 阶段 `click` 事件，`preventDefault` 后打开 drawer |
 | 抽屉地址栏同步 | `src/contentScripts/views/App.vue` | 抽屉打开时 `pushState` 到帖子 URL，关闭或后退时恢复列表 URL |
 | iframe Drawer | `src/components/IframeDrawer.vue` | 支持新标签打开、Esc/关闭按钮关闭；复制链接按钮已移除 |
-| 悬浮设置入口 | `src/contentScripts/views/App.vue` | 右下角悬浮按钮可切换首页 guideline banner 与置顶话题隐藏 |
-| 设置项 | `src/logic/storage.ts` | `hideHomePageGuidelineBanner`、`hideHomePagePinnedTopics` 已接入 |
+| 悬浮设置入口 | `src/contentScripts/views/App.vue` | 右下角悬浮按钮可切换首页置顶话题隐藏 |
+| 设置项 | `src/logic/storage.ts` | `hideHomePagePinnedTopics` 已接入 |
 
 ### 仍存在的 Bilibili 遗留
 

@@ -12,7 +12,7 @@ This project is a Linux.do migration of the original BewlyBewly codebase. The cu
 - Update the address bar to the current topic URL while the drawer is open, then restore the list URL when the drawer closes.
 - Support browser Back/Forward for the drawer route state where possible.
 - Keep the drawer header actions visible, with buttons for opening the topic in a new tab and closing the drawer.
-- Hide selected Linux.do homepage elements, including the guideline banner and pinned topics.
+- Hide selected Linux.do homepage elements, including pinned topics.
 - Provide a floating settings button on Linux.do pages for the homepage cleanup toggles.
 - Limit extension host permissions and content scripts to `https://linux.do/*`.
 
