@@ -262,6 +262,97 @@ sha256sum extension.zip
 
 ---
 
+## Scenario: Linux.do Content-Script Overlay and AutoImport DTS Boundaries
+
+### 1. Scope / Trigger
+
+- Trigger: changing Linux.do content-script root overlays, iframe drawer mounting, or Vite AutoImport declaration generation.
+- Applies to `src/contentScripts/views/App.vue`, Linux.do migration tests, and `vite.config.ts` AutoImport configuration.
+
+### 2. Signatures
+
+Content-script wrapper template contract:
+
+```vue
+<div v-if="showIframeDrawer" id="bewly-wrapper" class="linux-do-drawer-root">
+  <div class="linux-do-drawer">
+    <IframeDrawer :url="iframeDrawerURL" @close="showIframeDrawer = false" />
+  </div>
+</div>
+```
+
+AutoImport declaration contract:
+
+```typescript
+AutoImport({
+  imports: ['vue'],
+  dts: isDev && process.env.NODE_ENV === 'development'
+    ? r('src/auto-imports.d.ts')
+    : false,
+})
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| `showIframeDrawer` | Single runtime gate for rendering `#bewly-wrapper` and the iframe drawer. |
+| `#bewly-wrapper` | Must not exist in the default Linux.do page DOM before the drawer is opened. |
+| `.linux-do-drawer-root` | May keep `position: fixed`, `inset: 0`, and max z-index only because it is mounted on demand. |
+| `AutoImport.dts` | Writes `src/auto-imports.d.ts` only during explicit development mode. |
+| Test / production builds | Must not create or modify `src/auto-imports.d.ts`. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| App mounts on Linux.do and no topic drawer is open | Do not render `#bewly-wrapper`. |
+| User clicks a valid Linux.do topic link on a topic-list page | Set `showIframeDrawer = true`, render wrapper, and show `IframeDrawer`. |
+| Drawer emits `close` | Set `showIframeDrawer = false`, unmounting the wrapper. |
+| Vitest or production build runs | `src/auto-imports.d.ts` remains absent or unchanged. |
+| `pnpm build` regenerates extension artifacts | Generated artifacts remain out of the tracked source diff unless explicitly requested. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: the wrapper opening tag contains both `id="bewly-wrapper"` and `v-if="showIframeDrawer"`; targeted migration tests assert this boundary.
+- Base: drawer internals are conditionally hidden, but the fixed wrapper itself is still gated by the same state.
+- Bad: `#bewly-wrapper` is always mounted with `position: fixed; inset: 0; z-index: 2147483647`, or AutoImport writes declarations during tests/builds.
+
+### 6. Tests Required
+
+- `src/tests/linuxDoMigration.spec.ts`: assert the `#bewly-wrapper` opening tag contains `v-if="showIframeDrawer"`.
+- Targeted regression: `pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1`.
+- Source validation after behavior/build-config changes: `pnpm lint`, `pnpm typecheck`, and relevant `pnpm test` or `CI=true pnpm test`.
+- Build artifact validation when packaging: `pnpm build`, `pnpm pack:zip`, `unzip -tq extension.zip`, and confirm generated artifacts are not unintentionally staged.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```vue
+<div id="bewly-wrapper" class="linux-do-drawer-root">
+  <div v-if="showIframeDrawer" class="linux-do-drawer">
+    <IframeDrawer :url="iframeDrawerURL" />
+  </div>
+</div>
+```
+
+This mounts the full-screen highest z-index wrapper even when the drawer is closed.
+
+#### Correct
+
+```vue
+<div v-if="showIframeDrawer" id="bewly-wrapper" class="linux-do-drawer-root">
+  <div class="linux-do-drawer">
+    <IframeDrawer :url="iframeDrawerURL" />
+  </div>
+</div>
+```
+
+The full-screen wrapper only exists while the drawer is open.
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.

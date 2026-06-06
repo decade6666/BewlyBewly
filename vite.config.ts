@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 
 import { dirname, relative } from 'node:path'
+import process from 'node:process'
 
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import replace from '@rollup/plugin-replace'
@@ -32,6 +33,7 @@ export const sharedConfig: UserConfig = {
           ],
         },
       ],
+      dts: isDev && process.env.NODE_ENV === 'development' ? r('src/auto-imports.d.ts') : false,
     }),
 
     // https://github.com/intlify/bundle-tools/tree/main/packages/unplugin-vue-i18n

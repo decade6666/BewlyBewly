@@ -365,6 +365,19 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(source).not.toMatch(/bili-header|home-redesign-base|bilibili-gate-root/i)
   })
 
+  it('renders the full-screen wrapper only when the iframe drawer is open', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const wrapperIdIndex = appSource.indexOf('id="bewly-wrapper"')
+    const wrapperOpeningTag = appSource.slice(
+      appSource.lastIndexOf('<div', wrapperIdIndex),
+      appSource.indexOf('>', wrapperIdIndex) + 1,
+    )
+
+    expect(wrapperOpeningTag).toContain('<div')
+    expect(wrapperOpeningTag).toContain('class="linux-do-drawer-root"')
+    expect(wrapperOpeningTag).toContain('v-if="showIframeDrawer"')
+  })
+
   it('removes legacy request rewriting and Firefox cookie forwarding', async () => {
     const manifestSource = await readFile(resolve('src/manifest.ts'), 'utf8')
     const backgroundSource = await readFile(resolve('src/background/index.ts'), 'utf8')
