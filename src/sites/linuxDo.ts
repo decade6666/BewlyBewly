@@ -1,6 +1,7 @@
 const LINUX_DO_ORIGIN = 'https://linux.do'
 const LINUX_DO_GUIDELINE_BANNER_TEXT = '真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》'
 const TOPIC_LIST_PATHS = new Set(['', '/latest', '/top', '/hot'])
+const HOME_PAGE_PATHS = new Set(['', '/latest'])
 const CATEGORY_PATH_PATTERN = /^\/c(?:\/[^/]+)+$/
 const TOPIC_PATH_PATTERN = /^\/t\/[^/]+\/\d+(?:\/\d+)?$/
 const GUIDELINE_TEXT_SELECTOR = [
@@ -25,14 +26,8 @@ const GUIDELINE_CONTAINER_SELECTOR = [
   '.alert',
   'section',
 ].join(', ')
-const TOPIC_ROW_SELECTOR = [
-  'tr.topic-list-item',
-  '.topic-list-item',
-  '[class*="topic-list-item" i]',
-  '[class*="topic-card" i]',
-  '[class*="topic-item" i]',
-  'article',
-].join(', ')
+// Linux.do body classes can include topic-card tokens, so constrain hiding to table rows.
+const TOPIC_ROW_SELECTOR = 'tr.topic-list-item'
 const PINNED_TOPIC_MARKER_SELECTOR = [
   '.pinned',
   '[class*="pinned" i]',
@@ -73,7 +68,7 @@ export function isLinuxDoHomePage(url: string): boolean {
   if (!parsedUrl)
     return false
 
-  return normalizePathname(parsedUrl.pathname) === ''
+  return HOME_PAGE_PATHS.has(normalizePathname(parsedUrl.pathname))
 }
 
 export interface LinuxDoHomePageCleanupOptions {
@@ -180,6 +175,9 @@ function hidePinnedTopicRows(root: ParentNode): void {
 }
 
 function isPinnedTopicRow(row: HTMLElement): boolean {
+  if (row.tagName.toLowerCase() !== 'tr')
+    return false
+
   return row.classList.contains('pinned')
     || row.matches('[data-pinned="true"], [aria-label*="置顶"], [aria-label*="pinned" i], [title*="置顶"], [title*="pinned" i]')
     || row.querySelector(PINNED_TOPIC_MARKER_SELECTOR) !== null
