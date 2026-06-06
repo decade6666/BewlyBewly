@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
-- **Last Active**: 2026-06-05
+- **Total Sessions**: 5
+- **Last Active**: 2026-06-06
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~136 | Active |
+| `journal-1.md` | ~168 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-06-06 | Fix Linux.do drawer routing and docs | `269f97cc` | `fix/linux-do-wrapper-drawer` |
 | 4 | 2026-06-05 | Prepare Windows test artifact | `ccce5a07` | `docs/migration-plan-20260605` |
 | 3 | 2026-06-05 | Write Linux.do migration plan | `b9707822` | `docs/migration-plan-20260605` |
 | 2 | 2026-06-05 | Migrate Trellis to v0.5.19 | `4e031a94`, `e0525a7f` | `main` |

@@ -133,3 +133,35 @@ Generated and verified a local Chrome/Edge Windows test artifact at extension.zi
 ### Next Steps
 
 - None - task complete
+
+## Session 5: Fix Linux.do drawer routing and docs
+
+**Date**: 2026-06-06
+**Task**: Fix Linux.do drawer routing and docs
+**Branch**: `fix/linux-do-wrapper-drawer`
+
+### Summary
+
+Fixed Linux.do iframe drawer controls and URL history sync, removed copy-link action, restored homepage pinned-topic hiding, added floating settings controls, updated README/docs/package metadata, refreshed frontend code-specs, and validated with lint, tests, typecheck, and build.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `269f97cc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
