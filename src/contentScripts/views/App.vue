@@ -40,8 +40,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div id="bewly-wrapper" class="linux-do-drawer-root">
-    <div v-if="showIframeDrawer" class="linux-do-drawer">
+  <div v-if="showIframeDrawer" id="bewly-wrapper" class="linux-do-drawer-root">
+    <div class="linux-do-drawer">
       <IframeDrawer
         :url="iframeDrawerURL"
         @close="showIframeDrawer = false"

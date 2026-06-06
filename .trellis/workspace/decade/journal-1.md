@@ -69,3 +69,67 @@ Migrated Trellis project scaffolding to v0.5.19, added Linux.do homepage visibil
 ### Next Steps
 
 - None - task complete
+
+## Session 3: Write Linux.do migration plan
+
+**Date**: 2026-06-05
+**Task**: Write Linux.do migration plan
+**Branch**: `docs/migration-plan-20260605`
+
+### Summary
+
+Added a localized BewlyLinuxDo migration plan document, captured documentation-only migration plan conventions in the frontend quality spec, verified lint/typecheck, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b9707822` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+## Session 4: Prepare Windows test artifact
+
+**Date**: 2026-06-05
+**Task**: Prepare Windows test artifact
+**Branch**: `docs/migration-plan-20260605`
+
+### Summary
+
+Generated and verified a local Chrome/Edge Windows test artifact at extension.zip, documented local Chromium artifact generation in the frontend quality spec, and archived the Trellis task. Artifact checksum: 653c1c0b14c35d410692aa4b8435c90c07d9a9ec61416d6e2cfc4653be1461df.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ccce5a07` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
