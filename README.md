@@ -1,109 +1,75 @@
-# BewlyBewly
+# BewlyLinuxDo
 
-English | [官话 - 简体中文](README-cmn_CN.md) | [官話 - 繁體中文](README-cmn_TW.md) | [廣東話](README-jyut.md)
+English | [简体中文](README-cmn_CN.md)
 
-<p align="center" style="margin-bottom: 0px !important;">
-<img width="300" alt="BewlyBewly icon" src="https://cdn.jsdelivr.net/gh/BewlyBewly/Imgs/logos/bewlybewly-vtuber-logo.png"><br/>
-</p>
+BewlyLinuxDo is a browser extension focused on improving the Linux.do browsing flow. It keeps topic-list pages in place and opens Linux.do topics in an iframe drawer so users can read a topic, close it, and return to the same list context quickly.
 
-<p align="center">Just make a few small changes to your Bilibili homepage.</p>
+This project is a Linux.do migration of the original BewlyBewly codebase. The current scope is Linux.do-only; Bilibili-specific UI and API features are not part of the active product direction.
 
-<!-- ![min1](https://github.com/hakadao/BewlyBewly/assets/33394391/951f9e2a-d0e1-452c-83a9-dc6d85c4d441)
-![min2](https://github.com/hakadao/BewlyBewly/assets/33394391/3e75dd20-f60b-4645-b434-23a24c72959c) -->
+## Main features
 
-## 👋 Introduction
+- Open Linux.do topic links from list pages in a right-sized drawer overlay.
+- Update the address bar to the current topic URL while the drawer is open, then restore the list URL when the drawer closes.
+- Support browser Back/Forward for the drawer route state where possible.
+- Keep the drawer header actions visible, with buttons for opening the topic in a new tab and closing the drawer.
+- Hide selected Linux.do homepage elements, including the guideline banner and pinned topics.
+- Provide a floating settings button on Linux.do pages for the homepage cleanup toggles.
+- Limit extension host permissions and content scripts to `https://linux.do/*`.
 
-> [!IMPORTANT]
-> BewlyBewly mainly focuses on page adjustments and optimization rather than improving functionally and efficiency.
->
-> The dark mode will only be adapted to commonly used pages due to its efficiency and maintenance difficulty, while less
-> frequently used pages will not to be adapted.
+## Usage
 
-> [!CAUTION]
-> [BLBewly](https://apps.apple.com/us/app/blbewly/id6742200021) is a free BewlyBewly extension on Safari. We thank [𝗦𝘁𝗲𝘃𝗲 𝕏](https://x.com/st7evechou) for their help with the free publication of the app to Safari.
-> However, issues encountered with the Safari version are outside of our maintenance scope,
-> and we are not considering Safari maintenance.
+1. Install or load the extension in Chrome or Edge.
+2. Open `https://linux.do/`, `/latest`, `/top`, `/hot`, or a category topic-list page.
+3. Click a valid topic link to open it in the drawer.
+4. Use `Esc`, the close button, or browser Back to close the drawer.
+5. Use the floating settings button at the bottom-right of the page to enable or disable homepage cleanup options.
 
-> [!CAUTION]
-> If you are installing this extension, your browser will probably say that it can read your browser history.
->
-> This is because BewlyBewly uses the ["tabs" permission](https://developer.chrome.com/docs/extensions/reference/api/tabs), which can also be used to read each tab, allowing it to know the browsing history, but it is not utilized here.
->
-> **Some browsers will mention the worst-case scenario and the highest risks, ensuring your safety after installation.**
-> Additionally, this project is open source, so you can see what exactly what it does.
+## Local installation for Chrome or Edge
 
-BewlyBewly is a browser extension for BiliBili that aims to enhance the user experience by redesigning the BiliBili UI.
-The design is inspired by YouTube, Vision OS, and iOS, resulting in a more visually appealing and user-friendly interface.
-This project uses the [vitesse-webext](https://github.com/antfu/vitesse-webext) template for development.
-Without this template, it may not be possible to develop this project.
+```bash
+pnpm install
+pnpm build
+pnpm pack:zip
+```
 
-## ⬇️ Installation
+After building, use one of these methods:
 
-### Online Installation
+- Load the generated `extension/` directory through `chrome://extensions` or `edge://extensions` with Developer mode enabled.
+- Use the generated `extension.zip` as the Chromium test artifact when a packaged ZIP is required.
 
-> [!TIP]
-> Even in the Edge browser, we strongly recommend you install it in the Chrome web store.
-> In terms of review speed, the Chrome web store is faster than Edge Add-ons.
->
-> Additionally, the Chrome Web Store version of BewlyBewly will address and fix critical bugs more quickly.
+## Development
 
-- Chrome: <https://chromewebstore.google.com/detail/bewlybewly/bbbiejemhfihiooipfcjmjmbfdmobobp>
-- Edge: <https://chromewebstore.google.com/detail/bewlybewly/bbbiejemhfihiooipfcjmjmbfdmobobp>
-- Firefox: <https://addons.mozilla.org/en-US/firefox/addon/bewlybewly/>
+```bash
+pnpm install
+pnpm dev
+pnpm start:chromium
+```
 
-#### To Firefox users
+`pnpm start:chromium` starts a Chromium test profile configured to open `https://linux.do/`.
 
-> [!WARNING]
-> When using the Firefox browser, remember to enable all permissions shown in the picture below for normal use of BewlyBewly
+## Verification commands
 
-<br/> <img width="655" alt="enable all bewlybewly permissions on firefox" src="https://github.com/hakadao/BewlyBewly/assets/33394391/9566aed8-040a-4435-a2ec-c61117f8e429">
+```bash
+pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm pack:zip
+```
 
-### Local Installation
+For Chromium artifact validation, also verify `extension/manifest.json`, `extension.zip`, ZIP integrity, and checksum when distributing a local test build.
 
-[CI](https://github.com/hakadao/BewlyBewly/actions): Automatically build with the latest code
+## Documentation
 
-[Releases](https://github.com/hakadao/BewlyBewly/releases): Stable version
+- [Contribution guide](docs/CONTRIBUTING.md)
+- [Linux.do migration plan](docs/bewly-linux-do-migration-plan-cmn_CN.md)
 
-#### Edge & Chrome (RECOMMENDED)
+## Non-goals
 
-> Ensure you installed [extension.zip](https://github.com/hakadao/BewlyBewly/releases) .
+BewlyLinuxDo does not implement AI-assisted posting, reply generation, or other content-generation features. The project is intended for UI and browsing-flow improvements only.
 
-Opening the `edge://extensions` page in the Edge or `chrome://extensions` page in Chrome,
-simply drag and drop the downloaded `extension.zip` file into the browser to complete the installation.
+## Credits
 
-<details>
- <summary> Another installation method for Edge & Chrome </summary>
-
-#### Edge
-
-> Ensure you installed [extension.zip](https://github.com/hakadao/BewlyBewly/releases) and decompress this file.
-
-1. Type in `edge://extensions/` in the address bar and press Enter
-2. Turn on `Developer mode` then press `Load Unpacked` <br/> <img width="655" alt="image" src="https://user-images.githubusercontent.com/33394391/232246901-e3544c16-bde2-480d-b770-ca5242793963.png">
-3. Load the decompressed extension folder in your browser
-
-#### Chrome
->
-> Ensure you installed [extension.zip](https://github.com/hakadao/BewlyBewly/releases) and decompress this file.
-
-1. Type in `chrome://extensions/` in the address bar and press Enter
-2. Turn on `Developer mode` then press `Load Unpacked` <br/> <img width="655" alt="Snipaste_2022-03-27_18-17-04" src="https://user-images.githubusercontent.com/33394391/160276882-13da0484-92c1-47dd-add8-7655c5c2bf1c.png">
-3. Load the decompressed extension folder in your browser
-
-</details>
-
-## 🤝 Contribution & Build
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md)
-
-### Contributors
-
-[![Contributors](https://contrib.rocks/image?repo=hakadao/BewlyBewly)](https://github.com/BewlyBewly/BewlyBewly/graphs/contributors)
-
-## ❤️ Credits
-
-- [vitesse-webext](https://github.com/antfu/vitesse-webext) - The template used for this project
-- [UserScripts/bilibiliHome](https://github.com/indefined/UserScripts/tree/master/bilibiliHome),
-[bilibili-app-recommend](https://github.com/magicdawn/bilibili-app-recommend) - Reference source for obtaining the access key
-- [Bilibili-Evolved](https://github.com/the1812/Bilibili-Evolved) - Partial implementation of functionalities
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
+- [BewlyBewly](https://github.com/hakadao/BewlyBewly) for the original extension codebase.
+- [vitesse-webext](https://github.com/antfu/vitesse-webext) for the browser-extension development template.

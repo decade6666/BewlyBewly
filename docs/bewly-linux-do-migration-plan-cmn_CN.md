@@ -8,7 +8,7 @@
 
 | 证据来源 | 置信度 | 说明 |
 |----------|--------|------|
-| `package.json` | 已验证 | description 为 `Add a focused drawer browsing experience to Linux.do.`；homepage 为 `https://github.com/hakadao/BewlyBewly` |
+| `package.json` | 已验证 | name/displayName 为 BewlyLinuxDo，description 为 `Add a focused drawer browsing experience to Linux.do.`；homepage 为 `https://github.com/decade6666/BewlyLinuxDo` |
 | `src/manifest.ts` | 已验证 | permissions/host_permissions/content_scripts/web_accessible_resources 全部限定 `https://linux.do/*` |
 | 源码静态分析 | 已验证 | 所有引用的文件路径与行内容均在当前仓库内直接读取确认 |
 | `https://linux.do/site.json` | 已验证 | 公开 API，包含 trust_levels、post_types、18 个分类等结构 |
@@ -74,7 +74,9 @@
 | MutationObserver 清理 | `src/contentScripts/index.ts` | 监听 `document.body` 变更，自动重执行隐藏逻辑 |
 | Shadow DOM 注入 | `src/contentScripts/index.ts` | 创建 `#bewly` 容器，attachShadow 注入 App |
 | 话题点击拦截 | `src/contentScripts/views/App.vue` | capture 阶段 `click` 事件，`preventDefault` 后打开 drawer |
-| iframe Drawer | `src/components/IframeDrawer.vue` | 支持复制链接、新标签打开、Esc 关闭，四语本地化 |
+| 抽屉地址栏同步 | `src/contentScripts/views/App.vue` | 抽屉打开时 `pushState` 到帖子 URL，关闭或后退时恢复列表 URL |
+| iframe Drawer | `src/components/IframeDrawer.vue` | 支持新标签打开、Esc/关闭按钮关闭；复制链接按钮已移除 |
+| 悬浮设置入口 | `src/contentScripts/views/App.vue` | 右下角悬浮按钮可切换首页 guideline banner 与置顶话题隐藏 |
 | 设置项 | `src/logic/storage.ts` | `hideHomePageGuidelineBanner`、`hideHomePagePinnedTopics` 已接入 |
 
 ### 仍存在的 Bilibili 遗留
@@ -244,4 +246,4 @@
 
 ---
 
-*最后更新：2026-06-05*
+*最后更新：2026-06-06*

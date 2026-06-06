@@ -1,8 +1,9 @@
 import 'uno.css'
 
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import browser from 'webextension-polyfill'
 
+import { LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { settings } from '~/logic'
 import { hideLinuxDoHomePageElements } from '~/sites/linuxDo'
 import RESET_BEWLY_CSS from '~/styles/reset.css?raw'
@@ -11,7 +12,13 @@ import { isInIframe } from '~/utils/main'
 import { version } from '../../package.json'
 import App from './views/App.vue'
 
+interface LinuxDoDrawerRouteChangeDetail {
+  isOpen: boolean
+  baseUrl?: string
+}
+
 const isFirefox: boolean = /Firefox/i.test(navigator.userAgent)
+let cleanupUrlOverride: string | null = null
 
 if (isFirefox) {
   window.requestIdleCallback = window.requestIdleCallback.bind(window)
@@ -47,10 +54,21 @@ function setupLinuxDoHomePageCleanup() {
   })
 
   observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })
+  window.addEventListener(LINUX_DO_DRAWER_ROUTE_CHANGE, handleLinuxDoDrawerRouteChange)
+  watch(
+    () => [settings.value.hideHomePageGuidelineBanner, settings.value.hideHomePagePinnedTopics],
+    () => cleanupLinuxDoHomePage(),
+  )
+}
+
+function handleLinuxDoDrawerRouteChange(event: Event) {
+  const detail = (event as CustomEvent<LinuxDoDrawerRouteChangeDetail>).detail
+  cleanupUrlOverride = detail?.isOpen && detail.baseUrl ? detail.baseUrl : null
+  cleanupLinuxDoHomePage()
 }
 
 function cleanupLinuxDoHomePage() {
-  hideLinuxDoHomePageElements(document, location.href, {
+  hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
     hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
   })

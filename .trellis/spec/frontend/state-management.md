@@ -111,6 +111,134 @@ This keeps the persisted settings contract separate from the site-specific clean
 
 ---
 
+## Scenario: Linux.do Drawer Route State and Cleanup Override
+
+### 1. Scope / Trigger
+
+- Trigger: changing topic click interception, iframe drawer URL synchronization, browser back/forward behavior, or homepage cleanup while a drawer URL is shown in the address bar.
+- Applies to `src/contentScripts/views/App.vue`, `src/contentScripts/index.ts`, `src/constants/globalEvents.ts`, `src/sites/linuxDo.ts`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a cross-layer contract because the visible browser URL, drawer component state, custom events, and site DOM cleanup must agree without letting the iframe component mutate top-level history.
+
+### 2. Signatures
+
+Drawer history state shape:
+
+```typescript
+const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
+
+interface DrawerHistoryState {
+  [DRAWER_HISTORY_STATE_KEY]: true
+  drawerUrl: string
+  baseUrl: string
+}
+```
+
+Drawer route-change event detail:
+
+```typescript
+export const LINUX_DO_DRAWER_ROUTE_CHANGE = 'linuxDoDrawerRouteChange'
+
+interface LinuxDoDrawerRouteChangeDetail {
+  isOpen: boolean
+  baseUrl?: string
+}
+```
+
+Content-script app route functions:
+
+```typescript
+function openIframeDrawer(topicUrl: string, baseUrl = location.href, updateHistory = true): void
+function handleDrawerClose(): void
+function handlePopState(event: PopStateEvent): void
+function closeDrawerWithoutHistoryNavigation(): void
+function hideIframeDrawer(): void
+```
+
+Homepage cleanup boundary:
+
+```typescript
+let cleanupUrlOverride: string | null = null
+
+function handleLinuxDoDrawerRouteChange(event: Event): void {
+  const detail = (event as CustomEvent<LinuxDoDrawerRouteChangeDetail>).detail
+  cleanupUrlOverride = detail?.isOpen && detail.baseUrl ? detail.baseUrl : null
+}
+
+function cleanupLinuxDoHomePage(): void
+```
+
+### 3. Contracts
+
+| Field / Function | Contract |
+|---|---|
+| `DrawerHistoryState.drawerUrl` | The normalized Linux.do topic URL shown in the address bar and loaded in the iframe. |
+| `DrawerHistoryState.baseUrl` | The list/homepage URL to restore after closing the drawer or pressing browser Back. |
+| `openIframeDrawer(..., updateHistory = true)` | Opens the drawer, dispatches `{ isOpen: true, baseUrl }`, and pushes `drawerUrl` into top-level history when `updateHistory` is true. |
+| `handleDrawerClose()` | If the current history entry is a matching drawer entry, call `history.back()` and use a short fallback; otherwise close without navigation and replace the URL with `baseUrl` if needed. |
+| `handlePopState(event)` | Reopen the drawer without pushing a new history entry when `event.state` is a valid drawer state; close the drawer when leaving drawer state. |
+| `LINUX_DO_DRAWER_ROUTE_CHANGE` | Allows the content-script cleanup layer to keep using the original list URL while the address bar temporarily shows a topic URL. |
+| `cleanupUrlOverride` | Set to `baseUrl` while the drawer is open; reset to `null` when the drawer closes or an invalid open event is received. |
+| `cleanupLinuxDoHomePage()` | Calls `hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, options)`. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|---|---|
+| Click is default-prevented, non-left button, or has modifier keys | Do not intercept; let Linux.do/browser handle it. |
+| Click target does not resolve to a same-origin `/t/<slug>/<id>` URL | Do not open the drawer or mutate history. |
+| User clicks a topic on a list page | Prevent default navigation, open drawer, push the topic URL, and remember the current list URL as `baseUrl`. |
+| User closes drawer while current history state is the matching drawer state | Call `history.back()` so the address bar returns to `baseUrl`; fallback closes and `replaceState`s after `DRAWER_HISTORY_CLOSE_FALLBACK_MS` if no popstate closes it. |
+| Browser Back leaves drawer state | Hide drawer, clear `iframeDrawerURL` and `drawerBaseURL`, and dispatch `{ isOpen: false }`. |
+| Browser Forward re-enters a drawer state | Reopen drawer with `updateHistory = false` to avoid duplicate history entries. |
+| Drawer open event has no usable `baseUrl` | Clear cleanup override and run cleanup against `location.href`. |
+| Address bar shows a topic URL while drawer overlays a homepage/list page | Homepage cleanup must still use `baseUrl` through `cleanupUrlOverride`. |
+| `IframeDrawer.vue` tries to call `history.*` | Treat as a regression; only the content-script app owns top-level history. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: clicking a Linux.do homepage topic changes the address bar to the topic URL, keeps the underlying homepage cleanup scoped to the original homepage URL, and browser Back restores the list URL.
+- Base: closing the drawer without a matching drawer history state hides the drawer and uses `replaceState` to restore `baseUrl` if the address bar still shows the topic URL.
+- Bad: homepage cleanup reads only `location.href`, so opening a topic drawer changes the URL to `/t/...` and pinned homepage rows become visible again.
+
+### 6. Tests Required
+
+- URL helper tests: assert `normalizeLinuxDoTopicUrl`, `findLinuxDoTopicLink`, `isLinuxDoTopicListPage`, and `isLinuxDoHomePage` accept and reject the expected Linux.do paths.
+- Source boundary tests: assert `App.vue` contains `history.pushState(createDrawerHistoryState(topicUrl, baseUrl), '', topicUrl)` and `useEventListener(window, 'popstate', handlePopState)`.
+- Source boundary tests: assert `index.ts` imports `LINUX_DO_DRAWER_ROUTE_CHANGE`, listens for it, and calls `hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, options)`.
+- Regression tests: assert homepage pinned rows/cards hide on `/` and `/latest`, including class, data attribute, title/aria, icon, and text markers.
+- Regression tests: assert disabling cleanup settings restores only Bewly-hidden elements and keeps non-homepage pages untouched.
+- Validation commands: targeted `src/tests/linuxDoMigration.spec.ts`, `CI=true pnpm test`, `pnpm typecheck`, and `pnpm lint` after route/history changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+function cleanupLinuxDoHomePage() {
+  hideLinuxDoHomePageElements(document, location.href, {
+    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
+    hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  })
+}
+```
+
+When the drawer pushes a topic URL into the address bar, this makes homepage cleanup think the page is no longer a homepage.
+
+#### Correct
+
+```typescript
+function cleanupLinuxDoHomePage() {
+  hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
+    hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner,
+    hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  })
+}
+```
+
+The cleanup layer uses the underlying list URL while the drawer is open, and falls back to the real URL otherwise.
+
+---
+
 ## State Categories
 
 | Category | Location | Notes |

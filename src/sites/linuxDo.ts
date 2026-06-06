@@ -26,8 +26,16 @@ const GUIDELINE_CONTAINER_SELECTOR = [
   '.alert',
   'section',
 ].join(', ')
-// Linux.do body classes can include topic-card tokens, so constrain hiding to table rows.
-const TOPIC_ROW_SELECTOR = 'tr.topic-list-item'
+// Linux.do body classes can include topic-card tokens, so constrain hiding to topic list items.
+const TOPIC_ITEM_SELECTOR = [
+  'tr.topic-list-item',
+  'li.topic-list-item',
+  'article.topic-list-item',
+  '.topic-list .topic-list-item',
+  '.latest-topic-list .topic-list-item',
+  '.top-topic-list .topic-list-item',
+  '[data-topic-id].topic-list-item',
+].join(', ')
 const PINNED_TOPIC_MARKER_SELECTOR = [
   '.pinned',
   '[class*="pinned" i]',
@@ -36,6 +44,8 @@ const PINNED_TOPIC_MARKER_SELECTOR = [
   '.d-icon-thumbtack',
   '.d-icon-far-thumbtack',
   '[data-pinned="true"]',
+  '[data-topic-pinned="true"]',
+  '[data-pinned-globally="true"]',
   '[aria-label*="置顶"]',
   '[aria-label*="pinned" i]',
   '[title*="置顶"]',
@@ -43,8 +53,18 @@ const PINNED_TOPIC_MARKER_SELECTOR = [
   '[href*="thumbtack" i]',
   '[xlink\\:href*="thumbtack" i]',
 ].join(', ')
+const PINNED_TOPIC_ITEM_SELF_SELECTOR = [
+  '[class*="pinned" i]',
+  '[data-pinned="true"]',
+  '[data-topic-pinned="true"]',
+  '[data-pinned-globally="true"]',
+  '[aria-label*="置顶"]',
+  '[aria-label*="pinned" i]',
+  '[title*="置顶"]',
+  '[title*="pinned" i]',
+].join(', ')
 const PINNED_TOPIC_TEXT_MARKER_SELECTOR = 'span, div, a, button'
-const PINNED_TOPIC_TEXT_MARKER_PATTERN = /^(?:已?置顶|pinned)$/i
+const PINNED_TOPIC_TEXT_MARKER_PATTERN = /(?:^|[\s·|:：])(?:已?置顶|pinned)(?:$|[\s·|:：])/i
 const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
 const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
 const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
@@ -169,19 +189,16 @@ function findGuidelineBannerContainer(element: HTMLElement): HTMLElement {
 }
 
 function hidePinnedTopicRows(root: ParentNode): void {
-  Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ROW_SELECTOR))
-    .filter(isPinnedTopicRow)
+  Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ITEM_SELECTOR))
+    .filter(isPinnedTopicItem)
     .forEach(element => hideElement(element, 'pinned-topic'))
 }
 
-function isPinnedTopicRow(row: HTMLElement): boolean {
-  if (row.tagName.toLowerCase() !== 'tr')
-    return false
-
-  return row.classList.contains('pinned')
-    || row.matches('[data-pinned="true"], [aria-label*="置顶"], [aria-label*="pinned" i], [title*="置顶"], [title*="pinned" i]')
-    || row.querySelector(PINNED_TOPIC_MARKER_SELECTOR) !== null
-    || Array.from(row.querySelectorAll<HTMLElement>(PINNED_TOPIC_TEXT_MARKER_SELECTOR)).some(hasPinnedTopicTextMarker)
+function isPinnedTopicItem(element: HTMLElement): boolean {
+  return element.classList.contains('pinned')
+    || element.matches(PINNED_TOPIC_ITEM_SELF_SELECTOR)
+    || element.querySelector(PINNED_TOPIC_MARKER_SELECTOR) !== null
+    || Array.from(element.querySelectorAll<HTMLElement>(PINNED_TOPIC_TEXT_MARKER_SELECTOR)).some(hasPinnedTopicTextMarker)
 }
 
 function hasPinnedTopicTextMarker(element: Element): boolean {

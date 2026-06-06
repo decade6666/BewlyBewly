@@ -1,12 +1,12 @@
 {
-  "name": "bewly-bewly",
-  "displayName": "BewlyBewly",
+  "name": "bewly-linux-do",
+  "displayName": "BewlyLinuxDo",
   "type": "module",
   "version": "0.41.1",
   "private": true,
   "packageManager": "pnpm@9.5.0",
   "description": "Add a focused drawer browsing experience to Linux.do.",
-  "homepage": "https://github.com/hakadao/BewlyBewly",
+  "homepage": "https://github.com/decade6666/BewlyLinuxDo",
   "scripts": {
     "dev": "npm run clear && cross-env NODE_ENV=development run-p dev:*",
     "dev-firefox": "npm run clear-firefox && cross-env NODE_ENV=development FIREFOX=true run-p dev:*",

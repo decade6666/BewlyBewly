@@ -1,109 +1,75 @@
-# BewlyBewly
+# BewlyLinuxDo
 
-[English](README.md) | 官话 - 简体中文 | [官話 - 繁体中文](README-cmn_TW.md) | [廣東話](README-jyut.md)
+[English](README.md) | 简体中文
 
-<p align="center" style="margin-bottom: 0px !important;">
-<img width="300" alt="BewlyBewly icon" src="https://cdn.jsdelivr.net/gh/BewlyBewly/Imgs/logos/bewlybewly-vtuber-logo.png"><br/>
-</p>
+BewlyLinuxDo 是一个面向 Linux.do 的浏览器扩展，目标是优化话题列表到帖子阅读之间的浏览体验。它会保留当前话题列表页面，并在 iframe 抽屉中打开帖子，便于阅读后快速回到原列表上下文。
 
-<p align="center">只需对您的 Bilibili 主页进行一些小更改即可。</p>
+本项目从原 BewlyBewly 代码库迁移而来。当前产品范围仅面向 Linux.do；Bilibili 专用 UI、API 和视频相关能力不再是当前项目方向。
 
-<!-- ![min1](https://github.com/hakadao/BewlyBewly/assets/33394391/951f9e2a-d0e1-452c-83a9-dc6d85c4d441)
-![min2](https://github.com/hakadao/BewlyBewly/assets/33394391/3e75dd20-f60b-4645-b434-23a24c72959c) -->
+## 主要功能
 
-## 👋 介绍
+- 在 Linux.do 话题列表页点击帖子时，用抽屉覆盖层打开帖子。
+- 抽屉打开时地址栏显示当前帖子 URL，抽屉关闭后恢复列表页 URL。
+- 尽量支持浏览器后退/前进来切换抽屉路由状态。
+- 保持抽屉右上角操作按钮可见，保留“在新标签页打开”和“关闭”按钮。
+- 隐藏 Linux.do 首页中的指定元素，包括社区准则横幅和置顶话题。
+- 在 Linux.do 页面右下角提供悬浮设置按钮，用于切换首页清理选项。
+- 扩展权限和内容脚本仅限定到 `https://linux.do/*`。
 
-> [!IMPORTANT]
-> BewlyBewly 主要专注页面的调整和优化，而不是完善功能和提升效率。
->
-> 由于效率和维护难度的原因，暗色模式只会适应常用页面，而不会适应不常用的页面。
+## 使用方式
 
-> [!CAUTION]
-> [BLBewly](https://apps.apple.com/us/app/blbewly/id6742200021) 是 Safari 上的免费 BewlyBewly 扩展程序。我们感谢 [𝗦𝘁𝗲𝘃𝗲 𝕏](https://x.com/st7evechou) 帮助我们免费将应用发布到 Safari。
-> 但是，Safari 版本遇到的问题不在我们的维护范围内，我们不考虑 Safari 维护。
+1. 在 Chrome 或 Edge 中安装或加载扩展。
+2. 打开 `https://linux.do/`、`/latest`、`/top`、`/hot` 或分类话题列表页。
+3. 点击有效帖子链接，在抽屉中打开帖子。
+4. 使用 `Esc`、关闭按钮或浏览器后退关闭抽屉。
+5. 使用页面右下角的悬浮设置按钮启用或停用首页清理选项。
 
-> [!CAUTION]
-> 如果您正在安装此扩展程序，您的浏览器可能会提示它可以读取您的浏览历史记录。
->
-> 这是因为 BewlyBewly 使用了["tabs" 权限](https://developer.chrome.com/docs/extensions/reference/api/tabs)，该权限也可用于读取每个标签页，从而了解浏览历史，但在这里并未使用。
->
-> **一些浏览器会提到最坏的情况和最高的风险，以确保您在安装后的安全。**
-> 此外，这个项目是开源的，所以您可以看到它究竟做了什么。
+## Chrome 或 Edge 本地安装
 
-BewlyBewly 是一个用于 BiliBili 的浏览器扩展，旨在通过重新设计 BiliBili 用户界面来提升用户体验。设计灵感来自于 YouTube、Vision OS 和 iOS，从而实现了更具视觉吸引力和用户友好性的界面。
+```bash
+pnpm install
+pnpm build
+pnpm pack:zip
+```
 
-该项目使用 [vitesse-webext](https://github.com/antfu/vitesse-webext) 模板进行开发。如果没有这个模板，可能无法开发出这个项目。
+构建完成后可选择以下方式：
 
-## ⬇️ 安装
+- 在 `chrome://extensions` 或 `edge://extensions` 中启用开发者模式，并加载生成的 `extension/` 目录。
+- 需要打包文件时，使用生成的 `extension.zip` 作为 Chromium 测试产物。
 
-### 在线安装
+## 开发
 
-> [!TIP]
-> 即使在 Edge 浏览器中，我们也强烈建议您使用 Chrome 应用商店进行安装。在审核速度上，Chrome > 应用商店的审核速度比 Edge 应用商店快得多。
->
-> 此外，BewlyBewly 的 Chrome Web Store 版本将更快地解决和修复关键性错误。
+```bash
+pnpm install
+pnpm dev
+pnpm start:chromium
+```
 
-> [!IMPORTANT]
-> 如果你的电脑无法访问 Chrome Web Store，你可以尝试去 crx 搜搜下载：<https://www.crxsoso.com/webstore/detail/bbbiejemhfihiooipfcjmjmbfdmobobp>
->
-> 但与此项目在 Chrome Web Store 是否一致且未经修改不太能保证，但是经过测试是正常的，使用时请慎重，出现任何后果本项目概不负责
+`pnpm start:chromium` 会启动一个 Chromium 测试配置，并打开 `https://linux.do/`。
 
-- Chrome: <https://chromewebstore.google.com/detail/bewlybewly/bbbiejemhfihiooipfcjmjmbfdmobobp>
-- Edge: <https://chromewebstore.google.com/detail/bewlybewly/bbbiejemhfihiooipfcjmjmbfdmobobp>
-- Firefox: <https://addons.mozilla.org/zh-CN/firefox/addon/bewlybewly/>
+## 验证命令
 
-#### 对于 Firefox 用户
+```bash
+pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm pack:zip
+```
 
-> [!WARNING]
-> 使用 Firefox 浏览器时，请记得启用下面图片中显示的所有权限，以正常使用 BewlyBewly
+分发本地 Chromium 测试包时，还应检查 `extension/manifest.json`、`extension.zip`、ZIP 完整性和校验和。
 
-<br/> <img width="655" alt="enable all bewlybewly permissions on firefox" src="https://github.com/hakadao/BewlyBewly/assets/33394391/9566aed8-040a-4435-a2ec-c61117f8e429">
+## 文档
 
-### 本地安装
+- [贡献指南](docs/CONTRIBUTING-cmn_CN.md)
+- [Linux.do 迁移计划](docs/bewly-linux-do-migration-plan-cmn_CN.md)
 
-[CI](https://github.com/hakadao/BewlyBewly/actions)：使用最新代码自动构建
+## 非目标
 
-[Releases](https://github.com/hakadao/BewlyBewly/releases)：稳定版
+BewlyLinuxDo 不实现 AI 辅助发帖、回帖生成或其他内容生成能力。项目仅用于 UI 和浏览流程改进。
 
-#### Edge 和 Chrome（推荐）
+## 致谢
 
-> 确保您下载了 [extension.zip](https://github.com/hakadao/BewlyBewly/releases)。
-
-在 Edge 浏览器中打开 `edge://extensions` 或者在 Chrome 浏览器中打开 `chrome://extensions` 界面，只需将下载的 `extension.zip` 文件拖放到浏览器中即可完成安装。
-
-<details>
- <summary> Edge & Chrome 的另一种安装方法 </summary>
-
-#### Edge
-
-> 确保您下载了 [extension.zip](https://github.com/hakadao/BewlyBewly/releases) 并解压缩该文件。
-
-1. 在地址栏输入 `edge://extensions/` 并按回车
-2. 打开 `开发者模式` 并点击 `加载已解压的拓展程序` <br/> <img width="655" alt="image" src="https://user-images.githubusercontent.com/33394391/232246901-e3544c16-bde2-480d-b770-ca5242793963.png">
-3. 在浏览器中加载解压后的扩展文件夹
-
-#### Chrome
-
-> 确保您下载了 [extension.zip](https://github.com/hakadao/BewlyBewly/releases) 并解压缩该文件。
-
-1. 在地址栏输入 `chrome://extensions/` 并按回车
-2. 打开 `开发者模式` 并点击 `加载已解压的拓展程序` <br/> <img width="655" alt="Snipaste_2022-03-27_18-17-04" src="https://user-images.githubusercontent.com/33394391/160276882-13da0484-92c1-47dd-add8-7655c5c2bf1c.png">
-3. 在浏览器中加载解压后的扩展文件夹
-
-</details>
-
-## 🤝 贡献与构建项目
-
-查看 [CONTRIBUTING.md](docs/CONTRIBUTING-cmn_CN.md)
-
-### 贡献者
-
-[![Contributors](https://contrib.rocks/image?repo=hakadao/BewlyBewly)](https://github.com/BewlyBewly/BewlyBewly/graphs/contributors)
-
-## ❤️ 鸣谢
-
-- [vitesse-webext](https://github.com/antfu/vitesse-webext) - 该项目使用的模板
-- [UserScripts/bilibiliHome](https://github.com/indefined/UserScripts/tree/master/bilibiliHome),
-[bilibili-app-recommend](https://github.com/magicdawn/bilibili-app-recommend) - 获取访问密钥的参考来源
-- [Bilibili-Evolved](https://github.com/the1812/Bilibili-Evolved) - 部分功能实现
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
+- [BewlyBewly](https://github.com/hakadao/BewlyBewly)：原始扩展代码库。
+- [vitesse-webext](https://github.com/antfu/vitesse-webext)：浏览器扩展开发模板。

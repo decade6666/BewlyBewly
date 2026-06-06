@@ -1,173 +1,83 @@
 # 貢獻指南
 
-[English](CONTRIBUTING.md) | [官话 - 简体中文](CONTRIBUTING-cmn_CN.md) | [官話 - 繁体中文](CONTRIBUTING-cmn_TW.md) | [廣東話](CONTRIBUTING-jyut.md)
+[English](CONTRIBUTING.md) | [简体中文](CONTRIBUTING-cmn_CN.md) | 繁體中文 | [廣東話](CONTRIBUTING-jyut.md)
 
-## 💻 設定開發環境
+## 專案範圍
 
-此專案使用 [Vite](https://vitejs.dev/) 構建，請確保你離線安裝了 [Node.js](https://nodejs.org/) 和 [pnpm](https://pnpm.io/)，並推薦使用 [Visual Studio Code](https://code.visualstudio.com/) 進行開發。
+BewlyLinuxDo 是面向 Linux.do 的瀏覽器擴充功能。當前開發應保持話題列表瀏覽上下文，在 iframe 抽屜中開啟帖子，確保抽屜控制項可用，並為 Linux.do 頁面提供首頁清理設定。
 
-## 🔧 開發與建置專案
+不要新增 Bilibili 專用 UI、請求改寫、影片功能，或 AI 輔助發帖/回覆能力。除非任務明確要求改變範圍，否則擴充功能 host 權限和內容腳本應繼續限定在 `https://linux.do/*`。
 
-### 開發（Chrome 或 Edge）
+## 開發環境
 
-#### Chrome 或 Edge 的第一種方法
-
-<details>
- <summary>詳細內容</summary>
-
-1. 執行 pnpm 指令
+先安裝依賴：
 
 ```bash
-# 安裝依賴
 pnpm install
+```
 
-# 建立一個用戶的帳戶資料夾，用於擴充功能存儲登入狀態
+執行 Chromium 開發流程：
+
+```bash
+# 可選：建立可重複使用的本機瀏覽器設定目錄。
 mkdir web-ext-profile
 
-# 運行專案
+# 啟動 Vite 和擴充功能建置監聽。
 pnpm dev
 
-# 打完這條指令之後，會自動開啓一個新的 Chrome 視窗並打開 BiliBili 網站
+# 開啟訪問 https://linux.do/ 的 Chromium 測試設定。
 pnpm start:chromium
 ```
 
-2. 之後每次修改擴充功能，他都會重新載入內容，你可以透過重新整理頁面來查看變更內容
+如果瀏覽器沒有自動重新載入內容腳本，請在擴充功能重建後重新整理 Linux.do 頁面。
 
-</details>
+## Chrome 或 Edge 本機安裝
 
-#### Chrome 或 Edge 的另外一種方法
-
-<details>
- <summary>詳細內容</summary>
-
-1. 執行 pnpm 指令
-
-```bash
-# 安裝依賴
-pnpm install
-
-# 運行專案
-pnpm dev
-```
-
-2. 在地址欄輸入 `chrome://extensions/`（Chrome），`edge://extensions/`（Edge）並按 Enter 鍵
-
-3. 啓用 `開發者模式` 並點擊 `載入解壓縮`
-
-<img width="655" alt="Snipaste_2022-03-27_18-17-04" src="https://user-images.githubusercontent.com/33394391/160276882-13da0484-92c1-47dd-add8-7655c5c2bf1c.png">
-<br/>
-<img width="655" alt="image" src="https://user-images.githubusercontent.com/33394391/232246901-e3544c16-bde2-480d-b770-ca5242793963.png">
-
-4. 在瀏覽器中載入生成的 `extension/` 資料夾
-
-每次修改後，您需要點選 [Extensions Reloader](https://chromewebstore.google.com/detail/extensions-reloader/fimgfedafeadlieiabdeeaodndnlbhid) 按鈕，然後重新整理頁面，以確保更改生效。
-
-</details>
-
-#### 建置（Chrome 或 Edge）
-
-建置此擴充功能，需要執行以下指令
+建置擴充功能並打包 Chromium ZIP：
 
 ```bash
 pnpm build
+pnpm pack:zip
 ```
 
-然後打包 `extension` 下的檔案
+然後使用以下方式之一：
 
-### 開發（Firefox）
+1. 開啟 `chrome://extensions` 或 `edge://extensions`。
+2. 啟用開發者模式。
+3. 載入生成的 `extension/` 目錄；如需要打包的 Chromium 產物，則使用 `extension.zip`。
 
-#### Firefox 的第一種方法
+生成的 `extension/` 和 `extension.zip` 是本機產物，不應提交到 Git。
 
-<details>
- <summary>詳細內容</summary>
+## 驗證
 
-1. 執行 pnpm 命令
+修改內容腳本、iframe 抽屜、首頁清理或遷移元資料時，執行 Linux.do 定向回歸測試：
 
 ```bash
-# 安裝依賴
-pnpm install
-
-# 建立一個用戶的帳戶資料夾，用於擴充功能存儲登入狀態
-mkdir web-ext-profile
-
-# 運行專案
-pnpm dev
-
-# 打完這條指令之後，會自動開啓一個新的 Firefox 視窗並打開 BiliBili 網站
-pnpm start:firefox
+pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1
 ```
 
-2. 之後每次修改擴充功能，它都會重新加載，你可以透過重新整理頁面來查看變更內容
-
-</details>
-
-#### Firefox 的另一種方法
-
-<details>
- <summary>詳細內容</summary>
-
-1. 執行 pnpm 命令
+完成原始碼改動前執行倉庫檢查：
 
 ```bash
-# 安裝依賴
-pnpm install
-
-# 運行專案
-pnpm dev-firefox
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm pack:zip
 ```
 
-2. 在瀏覽器中輸入 `about:addons`，點擊 `Extensions` 然後 `Debug Add-ons`
+分發本機 Chromium 產物時，還要確認 `extension/manifest.json` 存在、`extension.zip` 非空、ZIP 完整性通過，並記錄 SHA256 校驗和。
 
-<img width="655" alt="image" src="https://github.com/hakadao/BewlyBewly/assets/33394391/7c49e4ca-2a87-4c56-bc00-3259d6eba128">
+## 文件更新
 
-3. 然後在瀏覽器中使用 `extension-firefox/` 資料夾載入此擴充功能。
+當專案目的、功能、建置步驟、測試命令或驗證邊界變化時，同步更新 `README.md`、本地化 README 和 `docs/` 下的相關文件。若中文使用者分析不是英文規範文件，請保存在 `*-cmn_CN.md` 文件中。
 
-</details>
+## Commit 規範
 
-#### 構建（Firefox）
+除非任務明確要求，否則不要建立 commit。需要提交時使用 Conventional Commits：
 
-要構建擴展，運行
-
-```bash
-pnpm build-firefox
+```text
+<type>(<scope>): <description>
 ```
 
-然後打包 `extension-firefox` 下的檔案
-
-## 🤝 貢獻
-
-### 關於分支
-
-#### 永久分支
-
-- **Main**：用於錯誤修正開發新功能、性能改進或修改國際化（i18n）文件的分支。
-
-#### 其他臨時分支
-
-- **feat/**：用於提交新功能的分支
-- **doc/**：專門用於修正文檔，無功能更改的分支。
-- **fix/**：專門用於修正 dev 分支中的錯誤的分支。
-
-### Commit 規範
-
-你也可以參考 [Angular commit message guidelines](https://github.com/angular/angular/blob/22b96b9/CONTRIBUTING.md#-commit-message-guidelines)
-
-- `feat`：新功能
-- `fix`：錯誤修復
-- `docs`：文檔更新
-- `style`：不影響程式碼含義的更改（空白、格式、缺少分號等）
-- `refactor`：重構程式碼
-- `test`：添加或更新測試
-- `chore`：對構建過程或工具鏈進行更改
-- `perf`：效能改進
-- `ci`：持續集成/交付更改
-也歡迎添加範圍和腳註
-例如：
-`fix(dock)：xxx`
-`變更描述`
-`相關 PR：url`
-
-### I18n
-
-- 在進行翻譯時，如果你遇到一種你不熟悉的語言，你可以使用另一種你已經翻譯過的語言來翻譯，並在 PR 中指出你無法翻譯的那個語言。
-- **請手動維護 i18n 國際化語系檔！！！** 請勿使用 `i18n Ally` 或其他擴充套件來進行維護。 我知道你可能會感到困惑，或者可能不喜歡這樣做，但使用 `i18n Ally` 進行維護後，將不確定翻譯放在哪裏，或刪除程式碼註解。
+可用類型包括 `feat`、`fix`、`refactor`、`docs`、`test`、`chore`、`perf`、`ci`。

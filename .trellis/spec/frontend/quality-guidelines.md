@@ -353,6 +353,122 @@ The full-screen wrapper only exists while the drawer is open.
 
 ---
 
+## Scenario: Linux.do Project Identity Metadata
+
+### 1. Scope / Trigger
+
+- Trigger: changing project README files, contribution docs, package metadata, manifest identity, or extension launch targets after migration work.
+- Applies to `package.json`, `src/manifest.ts`, localized `README*.md`, localized `docs/CONTRIBUTING*.md`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a repository metadata contract because local development, generated manifest fields, user documentation, and regression tests must all describe the same Linux.do-only extension.
+
+### 2. Signatures
+
+Package metadata fields:
+
+```json
+{
+  "name": "bewly-linux-do",
+  "displayName": "BewlyLinuxDo",
+  "homepage": "https://github.com/decade6666/BewlyLinuxDo",
+  "webExt": {
+    "run": {
+      "startUrl": ["https://linux.do/"]
+    }
+  }
+}
+```
+
+Manifest identity contract:
+
+```typescript
+const manifest = await getManifest()
+
+manifest.name // /^BewlyLinuxDo(?: Dev)?$/
+manifest.homepage_url // https://github.com/decade6666/BewlyLinuxDo
+manifest.host_permissions // ['https://linux.do/*']
+```
+
+Documentation scope:
+
+```text
+README.md
+README-cmn_CN.md
+README-cmn_TW.md
+README-jyut.md
+docs/CONTRIBUTING.md
+docs/CONTRIBUTING-cmn_CN.md
+docs/CONTRIBUTING-cmn_TW.md
+docs/CONTRIBUTING-jyut.md
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Package name | Use `bewly-linux-do`; do not keep upstream `BewlyBewly` package identity. |
+| Display name | Use `BewlyLinuxDo`; generated dev manifest may append ` Dev`. |
+| Homepage URL | Use the current repository URL `https://github.com/decade6666/BewlyLinuxDo`. |
+| Launch target | `webExt.run.startUrl` must start local browser testing at `https://linux.do/`. |
+| Manifest permissions | Host permissions and content-script matches are scoped to `https://linux.do/*`. |
+| Docs purpose | README and contributing docs describe a Linux.do browser extension, not a Bilibili enhancement extension. |
+| Localized docs | English, Simplified Chinese, Traditional Chinese, and Jyutping/Yue docs stay aligned on purpose, features, install/build/test commands, and contribution scope. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| `package.json` still references `BewlyBewly`, Bilibili, or upstream homepage | Update metadata before committing migration work. |
+| Manifest host permissions include non-Linux.do domains | Treat as a regression; remove unrelated host permissions unless a task explicitly adds them. |
+| README docs describe Bilibili features or store links | Rewrite docs to current Linux.do purpose and installation/build flow. |
+| Only one locale README is updated | Update all localized README and CONTRIBUTING files or document why a locale is intentionally skipped. |
+| Package metadata changes without a regression test | Add/update `linuxDoMigration.spec.ts` assertions for package and manifest identity. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: package metadata, generated manifest, all README variants, and all CONTRIBUTING variants consistently describe BewlyLinuxDo for Linux.do only.
+- Base: a docs-only wording update changes all localized variants but does not touch runtime permissions.
+- Bad: English README is updated while Traditional Chinese or Jyutping docs still instruct contributors to run against Bilibili.
+
+### 6. Tests Required
+
+- `src/tests/linuxDoMigration.spec.ts`: assert package `name`, `displayName`, `homepage`, description scope, and `webExt.run.startUrl`.
+- `src/tests/linuxDoMigration.spec.ts`: assert manifest `name`, `homepage_url`, host permissions, content-script matches, and blocked legacy targets.
+- `pnpm lint`: assert Markdown and JSON metadata are lint-clean.
+- `pnpm typecheck`: assert manifest typing still passes after metadata changes.
+- `pnpm build`: assert generated manifest keeps Linux.do-only scope when packaging is affected.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```json
+{
+  "displayName": "BewlyBewly",
+  "homepage": "https://github.com/BewlyBewly/BewlyBewly",
+  "webExt": {
+    "run": {
+      "startUrl": ["https://www.bilibili.com/"]
+    }
+  }
+}
+```
+
+#### Correct
+
+```json
+{
+  "displayName": "BewlyLinuxDo",
+  "homepage": "https://github.com/decade6666/BewlyLinuxDo",
+  "webExt": {
+    "run": {
+      "startUrl": ["https://linux.do/"]
+    }
+  }
+}
+```
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.

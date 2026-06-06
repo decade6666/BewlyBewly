@@ -1,174 +1,83 @@
 # Contribution Guide
 
-[English](CONTRIBUTING.md) | [官话 - 简体中文](CONTRIBUTING-cmn_CN.md) | [官話 - 繁体中文](CONTRIBUTING-cmn_TW.md) | [廣東話](CONTRIBUTING-jyut.md)
+English | [简体中文](CONTRIBUTING-cmn_CN.md)
 
-## 💻 Setting up the Development Environment
+## Project scope
 
-This project is built using [Vite](https://vitejs.dev/), please make sure you have [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) installed locally, and it is recommended to use [Visual Studio Code](https://code.visualstudio.com/) for development.
+BewlyLinuxDo is a Linux.do-focused browser extension. Current work should preserve the topic-list browsing context, open topics in an iframe drawer, keep drawer controls usable, and provide homepage cleanup settings for Linux.do pages.
 
-## 🔧 Developing and Building the Project
+Do not add Bilibili-specific UI, request rewriting, video features, or AI-assisted posting/reply generation. Extension host permissions and content scripts should remain limited to `https://linux.do/*` unless a task explicitly changes that scope.
 
-### Development (Chrome or Edge)
+## Development setup
 
-#### The First Method for Chrome or Edge
-
-<details>
- <summary>Show more</summary>
-
-1. Run the pnpm command
+Install dependencies first:
 
 ```bash
-# Install dependencies
 pnpm install
+```
 
-# Create a profile folder for the extension to store the login status
+Run the Chromium development workflow:
+
+```bash
+# Optional: create a reusable browser profile for local testing.
 mkdir web-ext-profile
 
-# Run the project
+# Start Vite and extension build watchers.
 pnpm dev
 
-# After typing this commend, it will automatically open a new Chrome window that opens BiliBili website
+# Open a Chromium test profile at https://linux.do/.
 pnpm start:chromium
 ```
 
-2. Every time you change the extension, it will reload, and you can see the changes by refreshing the webpage
+Refresh the Linux.do page after extension rebuilds when the browser does not reload the content script automatically.
 
-</details>
+## Local Chrome or Edge installation
 
-#### The Alternative Method for Chrome or Edge
-
-<details>
- <summary>Show more</summary>
-
-1. Run the pnpm command
-
-```bash
-# Install dependencies
-pnpm install
-
-# Run the project
-pnpm dev
-```
-
-2. Enter `chrome://extensions/` (Chrome), `edge://extensions/` (Edge) in the address bar and press Enter
-
-3. Enable `Developer Mode` and click `Load unpacked`
-
-<img width="655" alt="Snipaste_2022-03-27_18-17-04" src="https://user-images.githubusercontent.com/33394391/160276882-13da0484-92c1-47dd-add8-7655c5c2bf1c.png">
-<br/>
-<img width="655" alt="image" src="https://user-images.githubusercontent.com/33394391/232246901-e3544c16-bde2-480d-b770-ca5242793963.png">
-
-4. Load the generated `extension/` folder in the browser
-
-After each modification, you need to click the [Reload Extensions](https://chromewebstore.google.com/detail/extensions-reloader/fimgfedafeadlieiabdeeaodndnlbhid) button and refresh the page to apply the changes.
-
-</details>
-
-#### Building (Chrome or Edge)
-
-To build the extension, run
+Build the extension and package the Chromium ZIP:
 
 ```bash
 pnpm build
+pnpm pack:zip
 ```
 
-Then package it to the `extension` folder
+Then use one of these methods:
 
-### Development (Firefox)
+1. Open `chrome://extensions` or `edge://extensions`.
+2. Enable Developer mode.
+3. Load the generated `extension/` directory, or use `extension.zip` when a packaged Chromium artifact is required.
 
-#### The First Method for Firefox
+Generated `extension/` and `extension.zip` outputs are local artifacts and should not be committed.
 
-<details>
- <summary>Show more</summary>
+## Verification
 
-1. Run the pnpm command
+Run the targeted Linux.do regression test when changing the content script, iframe drawer, homepage cleanup, or migration metadata:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Create a profile folder for the extension to store the login status
-mkdir web-ext-profile
-
-# Run the project
-pnpm dev
-
-# After typing this commend, it will automatically open a new Firefox window that opens BiliBili website
-pnpm start:firefox
+pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1
 ```
 
-2. Every time you change the extension, it will reload, and you can see the changes by refreshing the webpage
-
-</details>
-
-#### The Alternative Method for Firefox
-
-<details>
- <summary>Show more</summary>
-
-1. Run the pnpm command
+Run the repository checks before finishing source changes:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Run the project
-pnpm dev-firefox
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm pack:zip
 ```
 
-2. In the browser, enter `about:addons`, click on `Extensions` and then `Debug Add-ons`
+When distributing a local Chromium artifact, also verify that `extension/manifest.json` exists, `extension.zip` is non-empty, ZIP integrity passes, and the SHA256 checksum is recorded.
 
-<img width="655" alt="image" src="https://github.com/hakadao/BewlyBewly/assets/33394391/7c49e4ca-2a87-4c56-bc00-3259d6eba128">
+## Documentation updates
 
-3. Load the generated `extension-firefox/` folder in the browser
+Update `README.md`, `README-cmn_CN.md`, and relevant files under `docs/` when project purpose, features, build steps, tests, or validation boundaries change. Keep Chinese user-facing analysis in `*-cmn_CN.md` files when it is not the English canonical document.
 
-</details>
+## Commit convention
 
-#### Building (Firefox)
+Do not create commits unless the task explicitly asks for one. When committing is requested, use Conventional Commits:
 
-To build the extension, run
-
-```bash
-pnpm build-firefox
+```text
+<type>(<scope>): <description>
 ```
 
-Then package it to the `extension-firefox` folder
-
-## 🤝 Contribution
-
-### About Branches
-
-#### Permanent Branches
-
-- **Main**: Use this branch for bug fixes, developing new features, performance improvements, or modifications to internationalization (i18n) files.
-
-#### Other Temporary Branches
-
-- **feat/**: This branch is used to submit new features
-- **doc/**: This branch is specifically used for fixing documentation, no functional changes.
-- **fix/**: This branch is specifically used for fixing errors in the dev branch.
-
-### Commit Convention
-
-You can also refer to the [Angular commit message guidelines](https://github.com/angular/angular/blob/22b96b9/CONTRIBUTING.md#-commit-message-guidelines)
-
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation update
-- `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- `refactor`: Code refactoring
-- `test`: Add or update tests
-- `chore`: Changes to the build process or toolchain
-- `perf`: Performance improvement
-- `ci`: Changes to continuous integration/delivery
-Also welcome to add scope and footer
-For example:
-`fix(dock): xxx`
-`Change description`
-`Related PR: url`
-
-### I18n
-
-- When doing translations, if you have a language you are not familiar with, you can use another language that you have translated and point out what language you cannot translate in the pull request.
-
-- **Please MANUALLY MAINTAIN the i18n files!!!** Do not use `i18n Ally` or other extensions to maintain them. I know you might be confused or might not like this, but using `i18n Ally` for the maintenance will make it uncertain where to place the translations afterward or delete the code comments.
+Allowed types include `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, and `ci`.

@@ -23,6 +23,8 @@ describe('linux.do migration manifest and package metadata', () => {
 
     const contentScript = manifest.content_scripts?.[0]
 
+    expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
+    expect(manifest.homepage_url).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(manifest.permissions).not.toContain('declarativeNetRequest')
     expect(manifest.permissions).not.toContain('webRequest')
     expect(manifest.permissions).not.toContain('webRequestBlocking')
@@ -43,8 +45,11 @@ describe('linux.do migration manifest and package metadata', () => {
   })
 
   it('uses Linux.do for local extension launch metadata', () => {
+    expect(pkg.name).toBe('bewly-linux-do')
+    expect(pkg.displayName).toBe('BewlyLinuxDo')
     expect(pkg.description).toMatch(/linux\.do/i)
     expect(pkg.description).not.toMatch(blockedLegacyTargets)
+    expect(pkg.homepage).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(pkg.webExt.run.startUrl).toEqual(['https://linux.do/'])
   })
 })
@@ -200,6 +205,34 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedByEnglishTitle?.style.getPropertyValue('display')).toBe('none')
     expect(pinnedBySvgUse?.style.getPropertyValue('display')).toBe('none')
     expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides homepage pinned topic cards without hiding normal cards', () => {
+    document.body.innerHTML = `
+      <section class="topic-list" data-testid="topic-list">
+        <article class="topic-list-item pinned" data-testid="pinned-card">
+          <a href="/t/pinned/123">Pinned topic card</a>
+        </article>
+        <div class="topic-list-item" data-pinned="true" data-testid="pinned-data-card">
+          <a href="/t/pinned-data/456">Pinned data card</a>
+        </div>
+        <div class="topic-list-item" data-testid="normal-card">
+          <a href="/t/normal/789">Normal topic card</a>
+        </div>
+      </section>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const topicList = document.querySelector<HTMLElement>('[data-testid="topic-list"]')
+    const pinnedCard = document.querySelector<HTMLElement>('[data-testid="pinned-card"]')
+    const pinnedDataCard = document.querySelector<HTMLElement>('[data-testid="pinned-data-card"]')
+    const normalCard = document.querySelector<HTMLElement>('[data-testid="normal-card"]')
+
+    expect(topicList?.style.getPropertyValue('display')).toBe('')
+    expect(pinnedCard?.style.getPropertyValue('display')).toBe('none')
+    expect(pinnedDataCard?.style.getPropertyValue('display')).toBe('none')
+    expect(normalCard?.style.getPropertyValue('display')).toBe('')
   })
 
   it('keeps the homepage guideline banner visible when banner cleanup is disabled', () => {
@@ -382,17 +415,23 @@ describe('linux.do content script and drawer boundaries', () => {
     const source = `${entrySource}\n${appSource}\n${drawerSource}`
 
     expect(entrySource).toContain('import browser from \'webextension-polyfill\'')
+    expect(entrySource).toContain('import { LINUX_DO_DRAWER_ROUTE_CHANGE } from \'~/constants/globalEvents\'')
     expect(entrySource).toContain('import { settings } from \'~/logic\'')
     expect(entrySource).toContain('return !isInIframe()')
-    expect(entrySource).toContain('hideLinuxDoHomePageElements(document, location.href, {')
+    expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {')
     expect(entrySource).toContain('hideGuidelineBanner: settings.value.hideHomePageGuidelineBanner')
     expect(entrySource).toContain('hidePinnedTopics: settings.value.hideHomePagePinnedTopics')
     expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
+    expect(entrySource).toContain('watch(')
     expect(entrySource).not.toContain('isLinuxDoTopicListPage(location.href)')
     expect(entrySource).not.toContain('import \'~/styles\'')
     expect(entrySource).not.toMatch(/setupApp|logic\/common-setup|SVG_ICONS/)
     expect(appSource).toContain('isLinuxDoTopicListPage(location.href)')
     expect(appSource).toContain('findLinuxDoTopicLink(event.target, location.href)')
+    expect(appSource).toContain('history.pushState(createDrawerHistoryState(topicUrl, baseUrl), \'\', topicUrl)')
+    expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
+    expect(appSource).toContain('class="linux-do-settings-button"')
+    expect(appSource).toContain('settings.hideHomePagePinnedTopics')
     expect(appSource).toContain('import IframeDrawer from \'~/components/IframeDrawer.vue\'')
     expect(drawerSource).toContain('import Button from \'~/components/Button.vue\'')
     expect(source).not.toMatch(blockedLegacyTargets)
@@ -427,14 +466,19 @@ describe('linux.do content script and drawer boundaries', () => {
     await expect(access(resolve('assets/rules.json'))).rejects.toThrow()
   })
 
-  it('does not mutate top-level browser history from the iframe drawer', async () => {
-    const source = await readFile(resolve('src/components/IframeDrawer.vue'), 'utf8')
+  it('keeps top-level history handling in the content-script app, not the iframe drawer', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const drawerSource = await readFile(resolve('src/components/IframeDrawer.vue'), 'utf8')
 
-    expect(source).not.toMatch(/history\.(pushState|replaceState)/)
-    expect(source).not.toMatch(/closeDrawerWithoutPressingEscAgain|press_esc_again_to_close/)
-    expect(source).not.toMatch(blockedLegacyTargets)
-    expect(source).toMatch(/copy/i)
-    expect(source).toContain('sandbox="allow-scripts allow-same-origin allow-forms"')
-    expect(source).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
+    expect(appSource).toMatch(/history\.(pushState|replaceState|back)/)
+    expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
+    expect(drawerSource).not.toMatch(/history\.(pushState|replaceState|back)/)
+    expect(drawerSource).not.toMatch(/closeDrawerWithoutPressingEscAgain|press_esc_again_to_close/)
+    expect(drawerSource).not.toMatch(/copyLink|clipboard|Copy link|复制链接|複製連結/i)
+    expect(drawerSource).not.toMatch(blockedLegacyTargets)
+    expect(drawerSource).toContain('handleOpenInNewTab')
+    expect(drawerSource).toContain('handleClose')
+    expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms"')
+    expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
   })
 })

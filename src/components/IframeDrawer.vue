@@ -16,26 +16,18 @@ const emit = defineEmits<{
 const drawerMessages = {
   en: {
     close: 'Close',
-    copyLink: 'Copy link',
-    copyLinkCopied: 'Copied',
     openInNewTab: 'Open in new tab',
   },
   'cmn-CN': {
     close: '关闭',
-    copyLink: '复制链接',
-    copyLinkCopied: '已复制',
     openInNewTab: '在新标签页打开',
   },
   'cmn-TW': {
     close: '關閉',
-    copyLink: '複製連結',
-    copyLinkCopied: '已複製',
     openInNewTab: '在新索引標籤開啓連結',
   },
   jyut: {
     close: '關閉',
-    copyLink: '複製連結',
-    copyLinkCopied: '已複製',
     openInNewTab: '喺新嘅分頁度打開連結',
   },
 } as const
@@ -43,6 +35,22 @@ const drawerMessages = {
 type DrawerLocale = keyof typeof drawerMessages
 
 const drawerLabels = drawerMessages[getDrawerLocale(navigator.language)]
+const show = ref(false)
+const headerShow = ref(false)
+const iframeRef = ref<HTMLIFrameElement | null>(null)
+const showIframe = ref<boolean>(false)
+const delayCloseTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const drawerTopOffset = computed(() => headerShow.value ? 'var(--bew-top-bar-height)' : '0px')
+
+onMounted(() => {
+  show.value = true
+  headerShow.value = true
+})
+
+onBeforeUnmount(() => {
+  clearTimers()
+  releaseIframeResources()
+})
 
 function getDrawerLocale(language: string): DrawerLocale {
   const normalizedLanguage = language.toLowerCase()
@@ -59,24 +67,6 @@ function getDrawerLocale(language: string): DrawerLocale {
   return 'en'
 }
 
-const show = ref(false)
-const headerShow = ref(false)
-const iframeRef = ref<HTMLIFrameElement | null>(null)
-const showIframe = ref<boolean>(false)
-const delayCloseTimer = ref<NodeJS.Timeout | null>(null)
-const copySucceeded = ref<boolean>(false)
-const copySucceededTimer = ref<NodeJS.Timeout | null>(null)
-
-onMounted(() => {
-  show.value = true
-  headerShow.value = true
-})
-
-onBeforeUnmount(() => {
-  clearTimers()
-  releaseIframeResources()
-})
-
 async function handleClose() {
   clearTimers()
   await releaseIframeResources()
@@ -90,8 +80,6 @@ async function handleClose() {
 function clearTimers() {
   if (delayCloseTimer.value)
     clearTimeout(delayCloseTimer.value)
-  if (copySucceededTimer.value)
-    clearTimeout(copySucceededTimer.value)
 }
 
 function handleEscape(event: KeyboardEvent) {
@@ -127,19 +115,6 @@ function handleOpenInNewTab() {
   handleClose()
 }
 
-async function handleCopyLink() {
-  try {
-    await navigator.clipboard.writeText(props.url)
-    copySucceeded.value = true
-    copySucceededTimer.value = setTimeout(() => {
-      copySucceeded.value = false
-    }, 1300)
-  }
-  catch (error) {
-    console.error('Unable to copy drawer URL:', error)
-  }
-}
-
 onKeyStroke('Escape', handleEscape, { target: window })
 </script>
 
@@ -159,7 +134,8 @@ onKeyStroke('Escape', handleEscape, { target: window })
     <Transition name="fade">
       <div
         v-if="headerShow"
-        pos="relative top-0" flex="~ items-center justify-end gap-2"
+        class="iframe-drawer-header"
+        pos="absolute top-0 left-0" z-2 flex="~ items-center justify-end gap-2"
         max-w="$bew-page-max-width" w-full h="$bew-top-bar-height"
         m-auto px-4
         pointer-events-none
@@ -183,19 +159,6 @@ onKeyStroke('Escape', handleEscape, { target: window })
             --b-button-color-hover: var(--bew-elevated-solid-hover);
           "
           pointer-events-auto
-          @click="handleCopyLink"
-        >
-          <template #left>
-            <i i-mingcute:copy-2-line />
-          </template>
-          {{ copySucceeded ? drawerLabels.copyLinkCopied : drawerLabels.copyLink }}
-        </Button>
-        <Button
-          style="
-            --b-button-color: var(--bew-elevated-solid);
-            --b-button-color-hover: var(--bew-elevated-solid-hover);
-          "
-          pointer-events-auto
           @click="handleClose"
         >
           <template #left>
@@ -210,8 +173,10 @@ onKeyStroke('Escape', handleEscape, { target: window })
     <Transition name="drawer">
       <div
         v-if="show"
-        :pos="`absolute ${headerShow ? 'top-$bew-top-bar-height' : 'top-0'} left-0`" of-hidden bg="$bew-bg"
-        rounded="t-$bew-radius" w-full h-full
+        class="iframe-drawer-content"
+        :style="{ top: drawerTopOffset }"
+        pos="absolute left-0 bottom-0" of-hidden bg="$bew-bg"
+        rounded="t-$bew-radius" w-full
       >
         <Transition name="fade">
           <iframe
@@ -232,6 +197,14 @@ onKeyStroke('Escape', handleEscape, { target: window })
 </template>
 
 <style lang="scss" scoped>
+.iframe-drawer-header {
+  right: 0;
+}
+
+.iframe-drawer-content {
+  height: auto;
+}
+
 .drawer-enter-active,
 .drawer-leave-active {
   transition: transform 0.3s;
