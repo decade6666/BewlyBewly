@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Revert removed scenario and restore Git scope wording for Local Chromium Artifact Generation; ensure tracked metadata lint-clean."}
+{"file":".trellis/tasks/06-07-revert-packages-publish-keep-releases-only/prd.md","reason":"Single source of truth for revert scope and acceptance criteria."}

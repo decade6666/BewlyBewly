@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Verify spec scenario removal and Git-scope wording restoration; ensure lint-clean."}
+{"file":".trellis/tasks/06-07-revert-packages-publish-keep-releases-only/prd.md","reason":"Verify all acceptance criteria are satisfied after the revert."}
