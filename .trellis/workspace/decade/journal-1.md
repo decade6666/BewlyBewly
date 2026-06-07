@@ -229,3 +229,35 @@ Removed Git-tracked extension.zip and added release-only GitHub Packages publish
 ### Next Steps
 
 - None - task complete
+
+## Session 8: Revert GitHub Packages publish path; keep releases only
+
+**Date**: 2026-06-07
+**Task**: Revert GitHub Packages publish path; keep releases only
+**Branch**: `main`
+
+### Summary
+
+Rolled back commit b9bddac0: deleted .github/workflows/release-it.yml, scripts/stage-artifacts.ts, packages/artifacts/package.json + directory, package.json stage-artifacts script, and the Release Artifact Publishing to GitHub Packages spec scenario; restored Local Chromium Artifact Generation Git-scope wording. Distribution now only via local npx release-it + .release-it.json after:release hooks (gh release upload, pnpm run submit). extension.zip remains untracked via root *.zip ignore. Validated: pnpm lint, pnpm typecheck, pnpm test 53/53 passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0e842ef0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

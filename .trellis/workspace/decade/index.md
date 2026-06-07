@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-06-07
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~232 | Active |
+| `journal-1.md` | ~264 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-06-07 | Revert GitHub Packages publish path; keep releases only | `0e842ef0` | `main` |
 | 7 | 2026-06-07 | Publish extension zips via GitHub Packages | `b9bddac0` | `main` |
 | 6 | 2026-06-06 | Generate Linux.do extension artifact | `9783ee5d` | `fix/linux-do-wrapper-drawer` |
 | 5 | 2026-06-06 | Fix Linux.do drawer routing and docs | `269f97cc` | `fix/linux-do-wrapper-drawer` |
