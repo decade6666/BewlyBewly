@@ -197,3 +197,35 @@ Generated Chromium extension artifact with pnpm build and pnpm pack:zip, validat
 ### Next Steps
 
 - None - task complete
+
+## Session 7: Publish extension zips via GitHub Packages
+
+**Date**: 2026-06-07
+**Task**: Publish extension zips via GitHub Packages
+**Branch**: `main`
+
+### Summary
+
+Removed Git-tracked extension.zip and added release-only GitHub Packages publish path: new packages/artifacts scoped npm package @decade6666/bewlylinuxdo-artifacts staged from extension.zip + extension-firefox.zip via scripts/stage-artifacts.ts, release-it.yml gains packages: write and a dedicated Setup GitHub Packages step (install/release-it remain on npmjs.org), Release upload and pnpm run submit unchanged; spec extended with Release Artifact Publishing scenario. Validated by pnpm lint/typecheck/test (53/53), pnpm build-firefox, pnpm pack:zip-firefox, pnpm run stage-artifacts.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b9bddac0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

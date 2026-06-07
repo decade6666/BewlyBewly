@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
-- **Last Active**: 2026-06-06
+- **Total Sessions**: 7
+- **Last Active**: 2026-06-07
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~200 | Active |
+| `journal-1.md` | ~232 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-06-07 | Publish extension zips via GitHub Packages | `b9bddac0` | `main` |
 | 6 | 2026-06-06 | Generate Linux.do extension artifact | `9783ee5d` | `fix/linux-do-wrapper-drawer` |
 | 5 | 2026-06-06 | Fix Linux.do drawer routing and docs | `269f97cc` | `fix/linux-do-wrapper-drawer` |
 | 4 | 2026-06-05 | Prepare Windows test artifact | `ccce5a07` | `docs/migration-plan-20260605` |
