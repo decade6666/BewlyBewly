@@ -39,6 +39,7 @@
     "typecheck": "vue-tsc",
     "postinstall": "npx simple-git-hooks",
     "knip": "knip",
+    "stage-artifacts": "esno scripts/stage-artifacts.ts",
     "submit": "run-p submit:*",
     "submit:chrome": "pnpm wxt submit --chrome-zip ./extension.zip",
     "submit:firefox": "pnpm wxt submit --firefox-zip ./extension-firefox.zip --firefox-sources-zip ./extension-firefox-sources.zip"

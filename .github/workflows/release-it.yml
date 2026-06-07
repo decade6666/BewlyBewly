@@ -2,6 +2,7 @@ name: Release
 
 permissions:
   contents: write
+  packages: write
   id-token: write
 
 on:
@@ -57,3 +58,15 @@ jobs:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
           EDGE_CLIENT_SECRET: ${{ secrets.EDGE_CLIENT_SECRET }}
           EDGE_ACCESS_TOKEN_URL: ${{ secrets.EDGE_ACCESS_TOKEN_URL }}
+
+      - name: Setup GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@decade6666'
+
+      - name: Publish artifacts to GitHub Packages
+        run: pnpm run stage-artifacts && cd packages/artifacts && npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

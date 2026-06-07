@@ -207,7 +207,7 @@ extension.zip
 | `pnpm pack:zip` | Packs `extension/*` into `extension.zip`; run it after `pnpm build`. |
 | Chrome/Edge ZIP | Use `extension.zip` as the downloadable Windows test artifact. |
 | Manifest | `extension/manifest.json` must exist after build and describe a Manifest V3 extension. |
-| Git scope | `extension/` and `extension.zip` are ignored generated artifacts and must not be committed. |
+| Git scope | `extension/`, `extension*.zip`, and `packages/artifacts/*.zip` are ignored generated artifacts and must not be committed; `extension.zip` is no longer Git-tracked and is published via the release flow (see Release Artifact Publishing to GitHub Packages). |
 | Firefox/Safari outputs | Do not generate them unless the task explicitly requests Firefox or Safari testing. |
 
 ### 4. Validation & Error Matrix
@@ -258,6 +258,175 @@ sha256sum extension.zip
 
 ```text
 /root/github/BewlyLinuxDo/extension.zip
+```
+
+---
+
+## Scenario: Release Artifact Publishing to GitHub Packages
+
+### 1. Scope / Trigger
+
+- Trigger: cutting a release via `.github/workflows/release-it.yml`, or changing the release/publish flow for extension ZIP build artifacts.
+- Applies to `.github/workflows/release-it.yml`, `.release-it.json`, `package.json`, `scripts/stage-artifacts.ts`, `packages/artifacts/package.json`, and `.gitignore`.
+- This is a code-spec scenario because it wires CI permissions, npm registry auth, scoped package identity, and a staging directory contract that downstream releases must follow exactly.
+
+### 2. Signatures
+
+Release workflow publish steps:
+
+```yaml
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+steps:
+  - uses: actions/setup-node@v4
+    with:
+      node-version: lts/*
+      registry-url: 'https://registry.npmjs.org'
+
+  # ... install / release-it ...
+
+  - name: Setup GitHub Packages
+    uses: actions/setup-node@v4
+    with:
+      node-version: lts/*
+      registry-url: 'https://npm.pkg.github.com'
+      scope: '@decade6666'
+
+  - name: Publish artifacts to GitHub Packages
+    run: pnpm run stage-artifacts && cd packages/artifacts && npm publish
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Artifact package metadata:
+
+```json
+{
+  "name": "@decade6666/bewlylinuxdo-artifacts",
+  "version": "0.0.0",
+  "private": false,
+  "license": "UNLICENSED",
+  "repository": "github:decade6666/BewlyLinuxDo",
+  "files": ["*.zip"]
+}
+```
+
+Staging script signature:
+
+```bash
+pnpm run stage-artifacts
+# = esno scripts/stage-artifacts.ts
+# Inputs: extension.zip, extension-firefox.zip at repo root
+# Outputs: packages/artifacts/extension.zip, packages/artifacts/extension-firefox.zip,
+#          packages/artifacts/package.json (version synced from root package.json)
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Package name | `@decade6666/bewlylinuxdo-artifacts`; scope must match the GitHub owner. |
+| Package files | `"files": ["*.zip"]`; only ZIP build artifacts are shipped. |
+| Template version | `packages/artifacts/package.json` is tracked with `version: "0.0.0"`; CI rewrites it before publish. |
+| Source of truth for version | Root `package.json` `version`, already bumped by `release-it`. |
+| Required release ZIPs | `extension.zip` and `extension-firefox.zip` must exist at repo root before `pnpm run stage-artifacts`. |
+| Registry routing | First `setup-node` keeps `registry.npmjs.org` for install/`release-it`; a second `setup-node` switches to `https://npm.pkg.github.com` with `scope: '@decade6666'` only before the publish step. |
+| Permissions | Workflow must declare `packages: write`; `npm publish` uses `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`. |
+| Token policy | No PAT or hardcoded token; `GITHUB_TOKEN` auto-scopes to the workflow's repository. |
+| Tracked artifacts | `extension.zip` and `extension-firefox.zip` are never Git-tracked; root `*.zip` rule covers `packages/artifacts/*.zip` as well. |
+| Preserved release behavior | `.release-it.json` `after:release` hooks (`gh release upload`, `pnpm run submit`) remain unchanged. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| `extension.zip` or `extension-firefox.zip` missing before publish | `scripts/stage-artifacts.ts` exits non-zero; do not proceed with `npm publish`. |
+| Root `package.json.version` empty or unreadable | Staging script exits non-zero; fix release-it bump before re-running. |
+| Workflow missing `packages: write` | `npm publish` returns 403; restore permission. |
+| `packages/artifacts/package.json` switched to unscoped name | GitHub Packages rejects publish; restore scoped name `@decade6666/...`. |
+| `packages/artifacts/package.json` set to `"private": true` | npm refuses to publish; keep `"private": false` in the artifact package while root `package.json` stays `"private": true`. |
+| Someone re-tracks `extension.zip` or commits `packages/artifacts/*.zip` | Untrack with `git rm --cached`; rely on root `*.zip` rule. |
+| First `setup-node` is changed to GitHub Packages registry | Revert to `registry.npmjs.org`; only the second `setup-node` may target GitHub Packages so dependency install/`release-it` are unaffected. |
+| Local validation runs `pnpm run stage-artifacts` | Restore `packages/artifacts/package.json` `version` to `0.0.0` before staging changes. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: release workflow installs deps against npmjs.org, runs `release-it` which bumps version and produces ZIPs, then a dedicated `Setup GitHub Packages` step routes only the final `npm publish` to `npm.pkg.github.com` with `GITHUB_TOKEN`, and `gh release upload` plus `pnpm run submit` still run as before.
+- Base: workflow YAML, `packages/artifacts/package.json`, and `scripts/stage-artifacts.ts` agree on the same package name, scope, file list, and version source; local `pnpm run stage-artifacts` succeeds with version restored to `0.0.0` afterward.
+- Bad: changing the only `setup-node` step to GitHub Packages registry (breaks dependency install), publishing from the repo root instead of `packages/artifacts/`, committing `packages/artifacts/extension.zip`, or hardcoding a PAT instead of `GITHUB_TOKEN`.
+
+### 6. Tests Required
+
+- `pnpm lint`: assert workflow/scripts/metadata are lint-clean.
+- `pnpm typecheck`: assert `scripts/stage-artifacts.ts` types pass.
+- `pnpm test`: assert source regressions (including `linuxDoMigration.spec.ts`) still pass when release flow is touched.
+- `pnpm build && pnpm pack:zip && pnpm build-firefox && pnpm pack:zip-firefox`: assert both ZIPs are produced.
+- `pnpm run stage-artifacts`: assert `packages/artifacts/extension.zip` and `packages/artifacts/extension-firefox.zip` exist and `packages/artifacts/package.json.version` equals root `package.json.version`.
+- `git check-ignore -v packages/artifacts/package.json packages/artifacts/extension.zip`: assert `package.json` is NOT ignored and `extension.zip` IS ignored by `.gitignore:*.zip`.
+- `git ls-files extension.zip`: assert no longer tracked.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```yaml
+- name: Set node
+  uses: actions/setup-node@v4
+  with:
+    node-version: lts/*
+    registry-url: 'https://npm.pkg.github.com'
+    scope: '@decade6666'
+
+- name: Publish artifacts to GitHub Packages
+  run: npm publish
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.PERSONAL_PAT }}
+```
+
+```json
+{
+  "name": "bewlylinuxdo-artifacts",
+  "private": true,
+  "version": "0.41.1"
+}
+```
+
+#### Correct
+
+```yaml
+- name: Set node
+  uses: actions/setup-node@v4
+  with:
+    node-version: lts/*
+    registry-url: 'https://registry.npmjs.org'
+
+# ... pnpm install, release-it ...
+
+- name: Setup GitHub Packages
+  uses: actions/setup-node@v4
+  with:
+    node-version: lts/*
+    registry-url: 'https://npm.pkg.github.com'
+    scope: '@decade6666'
+
+- name: Publish artifacts to GitHub Packages
+  run: pnpm run stage-artifacts && cd packages/artifacts && npm publish
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+```json
+{
+  "name": "@decade6666/bewlylinuxdo-artifacts",
+  "version": "0.0.0",
+  "private": false,
+  "license": "UNLICENSED",
+  "repository": "github:decade6666/BewlyLinuxDo",
+  "files": ["*.zip"]
+}
 ```
 
 ---
