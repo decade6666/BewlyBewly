@@ -7,6 +7,7 @@ import { originalSettings, settings } from '~/logic'
 import { version } from '../../../../package.json'
 
 const { t } = useI18n()
+const displayVersion = version.replace(/^(\d+\.\d+)\.0$/, '$1')
 
 const importSettingsRef = ref<HTMLElement>()
 const hasNewVersion = ref<boolean>(false)
@@ -109,7 +110,7 @@ function handleResetSettings() {
 }
 
 async function checkGitHubRelease() {
-  const apiUrl = `https://api.github.com/repos/BewlyBewly/BewlyBewly/releases/latest`
+  const apiUrl = `https://api.github.com/repos/decade6666/BewlyLinuxDo/releases/latest`
 
   try {
     const response = await fetch(apiUrl)
@@ -120,7 +121,7 @@ async function checkGitHubRelease() {
     const latestVersion = data.tag_name
 
     // Here you can compare `latestVersion` with your current version
-    const currentVersion = `v${version}` // Replace with your actual current version
+    const currentVersion = `v${displayVersion}`
 
     if (latestVersion !== currentVersion)
       hasNewVersion.value = true
@@ -140,7 +141,7 @@ async function checkGitHubRelease() {
 
         <a
           v-if="hasNewVersion"
-          href="https://github.com/hakadao/BewlyBewly/releases" target="_blank"
+          href="https://github.com/decade6666/BewlyLinuxDo/releases" target="_blank"
           pos="absolute bottom-0 right-0" transform="translate-x-50%" un-text="xs $bew-text-1" p="y-1 x-2" bg="$bew-fill-1"
           rounded-12
         >
@@ -149,7 +150,7 @@ async function checkGitHubRelease() {
       </div>
       <section text-2xl text-center mt-2>
         <p flex="inline gap-2" fw-900>
-          <span>BewlyBewly</span>
+          <span>BewlyLinuxDo</span>
           <span
             v-if="isDev"
             inline-block text="$bew-warning-color"
@@ -159,10 +160,10 @@ async function checkGitHubRelease() {
         </p>
         <p text-center>
           <a
-            href="https://github.com/hakadao/BewlyBewly/releases" target="_blank"
+            href="https://github.com/decade6666/BewlyLinuxDo/releases" target="_blank"
             un-text="sm color-$bew-text-2 hover:color-$bew-text-3"
           >
-            v{{ version }} - Farewell
+            v{{ displayVersion }} - 面向 Linux.do 的专注抽屉浏览与首页内容过滤体验。
           </a>
         </p>
       </section>
@@ -178,7 +179,7 @@ async function checkGitHubRelease() {
           </h3>
           <div grid="~ xl:cols-6 lg:cols-5 md:cols-4 cols-3 gap-2">
             <a
-              href="https://github.com/hakadao/BewlyBewly" target="_blank"
+              href="https://github.com/decade6666/BewlyLinuxDo" target="_blank"
               class="link-card"
               bg="black dark:white !opacity-10 !hover:opacity-20"
               un-text="black dark:white"
@@ -313,10 +314,10 @@ async function checkGitHubRelease() {
             {{ $t('settings.contributors') }}
           </h3>
           <a
-            href="https://github.com/hakadao/BewlyBewly/graphs/contributors" target="_blank"
+            href="https://github.com/decade6666/BewlyLinuxDo/graphs/contributors" target="_blank"
           >
             <img
-              src="https://contrib.rocks/image?repo=hakadao/BewlyBewly"
+              src="https://contrib.rocks/image?repo=decade6666/BewlyLinuxDo"
               w-full
             >
           </a>

@@ -2,10 +2,10 @@
   "name": "bewly-linux-do",
   "displayName": "BewlyLinuxDo",
   "type": "module",
-  "version": "0.41.1",
+  "version": "0.1.1",
   "private": true,
   "packageManager": "pnpm@9.5.0",
-  "description": "Add a focused drawer browsing experience to Linux.do.",
+  "description": "Focused drawer browsing and homepage content filtering for Linux.do.",
   "homepage": "https://github.com/decade6666/BewlyLinuxDo",
   "scripts": {
     "dev": "npm run clear && cross-env NODE_ENV=development run-p dev:*",

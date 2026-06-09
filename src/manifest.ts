@@ -4,6 +4,10 @@ import type { Manifest } from 'webextension-polyfill'
 import type PkgType from '../package.json'
 import { isDev, isFirefox, isSafari, port, r } from '../scripts/utils'
 
+export function formatManifestVersion(version: string): string {
+  return version.replace(/^(\d+\.\d+)\.0$/, '$1')
+}
+
 export async function getManifest() {
   const pkg = await fs.readJSON(r('package.json')) as typeof PkgType
 
@@ -12,7 +16,7 @@ export async function getManifest() {
   const manifest: Manifest.WebExtensionManifest = {
     manifest_version: 3,
     name: `${pkg.displayName || pkg.name}${isDev ? ' Dev' : ''}`,
-    version: pkg.version,
+    version: formatManifestVersion(pkg.version),
     description: pkg.description,
     homepage_url: pkg.homepage,
     // action: {

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import pkg from '../../package.json'
 import { cleanLegacySettingsStorageValue, removeLegacySettingsFields } from '../logic/settingsMigration'
-import { getManifest } from '../manifest'
+import { formatManifestVersion, getManifest } from '../manifest'
 import {
   findLinuxDoTopicLink,
   hideLinuxDoHomePageElements,
@@ -25,6 +25,10 @@ describe('linux.do migration manifest and package metadata', () => {
     const contentScript = manifest.content_scripts?.[0]
 
     expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
+    expect(manifest.version).toBe('0.1.1')
+    expect(manifest.description).toBe(
+      'Focused drawer browsing and homepage content filtering for Linux.do.',
+    )
     expect(manifest.homepage_url).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(manifest.permissions).not.toContain('declarativeNetRequest')
     expect(manifest.permissions).not.toContain('webRequest')
@@ -45,13 +49,36 @@ describe('linux.do migration manifest and package metadata', () => {
     expect(serializedManifest).not.toMatch(blockedLegacyTargets)
   })
 
+  it('formats the semver package version for the WebExtension manifest', () => {
+    expect(formatManifestVersion(pkg.version)).toBe('0.1.1')
+    expect(formatManifestVersion('0.1.1')).toBe('0.1.1')
+  })
+
   it('uses Linux.do for local extension launch metadata', () => {
     expect(pkg.name).toBe('bewly-linux-do')
     expect(pkg.displayName).toBe('BewlyLinuxDo')
+    expect(pkg.version).toBe('0.1.1')
+    expect(pkg.description).toBe(
+      'Focused drawer browsing and homepage content filtering for Linux.do.',
+    )
     expect(pkg.description).toMatch(/linux\.do/i)
     expect(pkg.description).not.toMatch(blockedLegacyTargets)
     expect(pkg.homepage).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(pkg.webExt.run.startUrl).toEqual(['https://linux.do/'])
+  })
+
+  it('shows the v0.1 Linux.do plugin UI description in About', async () => {
+    const aboutSource = await readFile(resolve('src/components/Settings/About/About.vue'), 'utf8')
+
+    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.1')
+    expect(aboutSource).toContain(
+      'const displayVersion = version.replace(/^(\\d+\\.\\d+)\\.0$/, \'$1\')',
+    )
+    expect(aboutSource).toContain(
+      'v{{ displayVersion }} - 面向 Linux.do 的专注抽屉浏览与首页内容过滤体验。',
+    )
+    expect(aboutSource).toContain('<span>BewlyLinuxDo</span>')
+    expect(aboutSource).not.toContain('Farewell')
   })
 })
 
@@ -203,6 +230,33 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedTopic?.style.getPropertyValue('display')).toBe('none')
     expect(pinnedTopic?.style.getPropertyPriority('display')).toBe('important')
     expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('does not rewrite hidden topic attributes on repeated cleanup runs', async () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+
+    const pinnedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')
+
+    if (!pinnedTopic)
+      throw new Error('Expected pinned topic fixture')
+
+    const mutations: MutationRecord[] = []
+    const observer = new MutationObserver(records => mutations.push(...records))
+
+    observer.observe(pinnedTopic, { attributes: true })
+    hideLinuxDoHomePageElements(document, 'https://linux.do/')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    observer.disconnect()
+
+    expect(mutations).toEqual([])
   })
 
   it('keeps split guideline banner text visible while hiding homepage pinned topics', () => {
@@ -374,6 +428,179 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedTopic?.style.getPropertyValue('display')).toBe('')
   })
 
+  it('hides homepage topic items that include a blocked word ignoring case', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item" data-testid="blocked-topic"><td>Discuss CLAUDE Code workflows</td></tr>
+          <tr class="topic-list-item" data-testid="normal-topic"><td>Linux.do daily notes</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: [' claude '],
+    })
+
+    const blockedTopic = document.querySelector<HTMLElement>('[data-testid="blocked-topic"]')
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
+
+    expect(blockedTopic?.style.getPropertyValue('display')).toBe('none')
+    expect(blockedTopic?.style.getPropertyPriority('display')).toBe('important')
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('preserves nonmatching topic display styles while blocked-word filtering is enabled', () => {
+    document.body.innerHTML = `
+      <section class="topic-list">
+        <article class="topic-list-item" data-testid="normal-topic" style="display: grid;">
+          Linux.do daily notes
+        </article>
+      </section>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: ['claude'],
+    })
+
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
+
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('grid')
+  })
+
+  it('hides /latest topic items that match a blocked regex', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item" data-testid="regex-topic"><td>抽奖活动集中讨论</td></tr>
+          <tr class="topic-list-item" data-testid="normal-topic"><td>开发经验分享</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/latest', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: ['/抽奖|raffle/'],
+    })
+
+    const regexTopic = document.querySelector<HTMLElement>('[data-testid="regex-topic"]')
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
+
+    expect(regexTopic?.style.getPropertyValue('display')).toBe('none')
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('ignores invalid blocked-word regex entries without crashing cleanup', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item" data-testid="topic"><td>Any topic text</td></tr>
+        </tbody>
+      </table>
+    `
+
+    expect(() => hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: ['/[invalid/'],
+    })).not.toThrow()
+
+    const topic = document.querySelector<HTMLElement>('[data-testid="topic"]')
+
+    expect(topic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('restores topics hidden only by blocked words when the switch is disabled', () => {
+    document.body.innerHTML = `
+      <section class="topic-list">
+        <article class="topic-list-item" data-testid="blocked-topic" style="display: grid;">
+          Giveaway keyword match
+        </article>
+      </section>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: ['giveaway'],
+    })
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: false,
+      blockedWords: ['giveaway'],
+    })
+
+    const blockedTopic = document.querySelector<HTMLElement>('[data-testid="blocked-topic"]')
+
+    expect(blockedTopic?.style.getPropertyValue('display')).toBe('grid')
+    expect(blockedTopic?.style.getPropertyPriority('display')).toBe('')
+  })
+
+  it('does not hide blocked-word matches on non-homepage pages', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item" data-testid="blocked-topic"><td>Blocked keyword match</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/t/welcome/123', {
+      hidePinnedTopics: false,
+      enableBlockedWords: true,
+      blockedWords: ['blocked'],
+    })
+
+    const blockedTopic = document.querySelector<HTMLElement>('[data-testid="blocked-topic"]')
+
+    expect(blockedTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('keeps pinned-topic hiding independent from blocked-word hiding', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item pinned" data-testid="pinned-blocked-topic"><td>Prize keyword match</td></tr>
+          <tr class="topic-list-item" data-testid="blocked-topic"><td>Prize keyword match</td></tr>
+        </tbody>
+      </table>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: true,
+      enableBlockedWords: true,
+      blockedWords: ['prize'],
+    })
+
+    const pinnedBlockedTopic = document.querySelector<HTMLElement>('[data-testid="pinned-blocked-topic"]')
+    const blockedTopic = document.querySelector<HTMLElement>('[data-testid="blocked-topic"]')
+
+    expect(pinnedBlockedTopic?.style.getPropertyValue('display')).toBe('none')
+    expect(blockedTopic?.style.getPropertyValue('display')).toBe('none')
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: true,
+      enableBlockedWords: false,
+      blockedWords: ['prize'],
+    })
+
+    expect(pinnedBlockedTopic?.style.getPropertyValue('display')).toBe('none')
+    expect(blockedTopic?.style.getPropertyValue('display')).toBe('')
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      enableBlockedWords: false,
+      blockedWords: ['prize'],
+    })
+
+    expect(pinnedBlockedTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
   it('keeps screenshot-style homepage guideline strip visible while hiding real pinned topic rows', () => {
     document.body.innerHTML = `
       <main>
@@ -480,11 +707,15 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('return !isInIframe()')
     expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {')
     expect(entrySource).toContain('hidePinnedTopics: settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('enableBlockedWords: settings.value.enableHomePageBlockedWords')
+    expect(entrySource).toContain('blockedWords: [...settings.value.homePageBlockedWords]')
     expect(entrySource).not.toContain('hideGuidelineBanner')
     expect(entrySource).not.toContain('hideHomePageGuidelineBanner')
     expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
     expect(entrySource).toContain('watch(')
-    expect(entrySource).toContain('() => settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('settings.value.enableHomePageBlockedWords')
+    expect(entrySource).toContain('...settings.value.homePageBlockedWords')
     expect(entrySource).not.toContain('isLinuxDoTopicListPage(location.href)')
     expect(entrySource).not.toContain('import \'~/styles\'')
     expect(entrySource).not.toMatch(/setupApp|logic\/common-setup|SVG_ICONS/)
@@ -494,6 +725,10 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
     expect(appSource).toContain('class="linux-do-settings-button"')
     expect(appSource).toContain('settings.hideHomePagePinnedTopics')
+    expect(appSource).toContain('settings.enableHomePageBlockedWords')
+    expect(appSource).toContain('settings.homePageBlockedWords')
+    expect(appSource).toContain('handleBlockedWordsImport')
+    expect(appSource).toContain('handleBlockedWordsExport')
     expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
     expect(appSource).toContain('import IframeDrawer from \'~/components/IframeDrawer.vue\'')
     expect(drawerSource).toContain('import Button from \'~/components/Button.vue\'')
@@ -512,6 +747,10 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(homeSettingsSource).not.toMatch(/hide_homepage_guideline_banner|hideHomePageGuidelineBanner/)
     expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
     expect(storageSource).not.toContain('hideHomePageGuidelineBanner')
+    expect(storageSource).toContain('enableHomePageBlockedWords: boolean')
+    expect(storageSource).toContain('homePageBlockedWords: string[]')
+    expect(storageSource).toContain('enableHomePageBlockedWords: false')
+    expect(storageSource).toContain('homePageBlockedWords: []')
     expect(storageSource).toContain('void cleanupLegacySettingsStorage()')
     expect(storageSource).toContain('cleanLegacySettingsStorageValue(storedSettings)')
     expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\'] as const')

@@ -56,7 +56,11 @@ function setupLinuxDoHomePageCleanup() {
   observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })
   window.addEventListener(LINUX_DO_DRAWER_ROUTE_CHANGE, handleLinuxDoDrawerRouteChange)
   watch(
-    () => settings.value.hideHomePagePinnedTopics,
+    () => [
+      settings.value.hideHomePagePinnedTopics,
+      settings.value.enableHomePageBlockedWords,
+      ...settings.value.homePageBlockedWords,
+    ],
     () => cleanupLinuxDoHomePage(),
   )
 }
@@ -70,6 +74,8 @@ function handleLinuxDoDrawerRouteChange(event: Event) {
 function cleanupLinuxDoHomePage() {
   hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+    enableBlockedWords: settings.value.enableHomePageBlockedWords,
+    blockedWords: [...settings.value.homePageBlockedWords],
   })
 }
 

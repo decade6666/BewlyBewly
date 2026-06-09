@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Linux.do floating settings panel component contract"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Settings storage to UI to content-script cleanup mapping"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Validation scripts and project metadata hygiene"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing filter import export and cleanup patterns"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer settings and DOM cleanup flow"}

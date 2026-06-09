@@ -43,10 +43,12 @@ const PINNED_TOPIC_ITEM_SELF_SELECTOR = [
 const PINNED_TOPIC_TEXT_MARKER_SELECTOR = 'span, div, a, button'
 const PINNED_TOPIC_TEXT_MARKER_PATTERN = /(?:^|[\s·|:：])(?:已?置顶|pinned)(?:$|[\s·|:：])/i
 const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
+const HOME_PAGE_HIDDEN_KIND_SEPARATOR = ' '
 const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
 const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
 
-type HomePageHiddenElementKind = 'pinned-topic'
+type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
+type HomePageBlockedWordMatcher = (text: string) => boolean
 
 export function isLinuxDoTopicListPage(url: string): boolean {
   const parsedUrl = parseLinuxDoUrl(url)
@@ -70,10 +72,14 @@ export function isLinuxDoHomePage(url: string): boolean {
 
 export interface LinuxDoHomePageCleanupOptions {
   hidePinnedTopics: boolean
+  enableBlockedWords?: boolean
+  blockedWords?: string[]
 }
 
 const DEFAULT_HOME_PAGE_CLEANUP_OPTIONS: LinuxDoHomePageCleanupOptions = {
   hidePinnedTopics: true,
+  enableBlockedWords: false,
+  blockedWords: [],
 }
 
 export function hideLinuxDoHomePageElements(
@@ -84,10 +90,20 @@ export function hideLinuxDoHomePageElements(
   if (!isLinuxDoHomePage(url))
     return
 
-  if (options.hidePinnedTopics)
+  const cleanupOptions = {
+    ...DEFAULT_HOME_PAGE_CLEANUP_OPTIONS,
+    ...options,
+  }
+
+  if (cleanupOptions.hidePinnedTopics)
     hidePinnedTopicRows(root)
   else
     restoreHiddenElements(root, 'pinned-topic')
+
+  if (cleanupOptions.enableBlockedWords)
+    applyBlockedWordFiltering(root, cleanupOptions.blockedWords ?? [])
+  else
+    restoreHiddenElements(root, 'blocked-word')
 }
 
 export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string | null {
@@ -127,6 +143,67 @@ function hidePinnedTopicRows(root: ParentNode): void {
     .forEach(element => hideElement(element, 'pinned-topic'))
 }
 
+function applyBlockedWordFiltering(root: ParentNode, blockedWords: string[]): void {
+  const matchers = createBlockedWordMatchers(blockedWords)
+
+  if (matchers.length === 0) {
+    restoreHiddenElements(root, 'blocked-word')
+    return
+  }
+
+  Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ITEM_SELECTOR))
+    .forEach((element) => {
+      if (doesElementMatchBlockedWords(element, matchers))
+        hideElement(element, 'blocked-word')
+      else
+        restoreHiddenElementKind(element, 'blocked-word')
+    })
+}
+
+function doesElementMatchBlockedWords(element: HTMLElement, matchers: HomePageBlockedWordMatcher[]): boolean {
+  const text = element.textContent ?? ''
+
+  return matchers.some(matcher => matcher(text))
+}
+
+function createBlockedWordMatchers(blockedWords: string[]): HomePageBlockedWordMatcher[] {
+  return blockedWords
+    .map(createBlockedWordMatcher)
+    .filter((matcher): matcher is HomePageBlockedWordMatcher => matcher !== null)
+}
+
+function createBlockedWordMatcher(blockedWord: string): HomePageBlockedWordMatcher | null {
+  const normalizedBlockedWord = blockedWord.trim()
+
+  if (!normalizedBlockedWord)
+    return null
+
+  if (isRegexBlockedWord(normalizedBlockedWord))
+    return createRegexBlockedWordMatcher(normalizedBlockedWord.slice(1, -1))
+
+  const normalizedKeyword = normalizedBlockedWord.toLowerCase()
+
+  return text => text.toLowerCase().includes(normalizedKeyword)
+}
+
+function createRegexBlockedWordMatcher(pattern: string): HomePageBlockedWordMatcher | null {
+  if (!pattern)
+    return null
+
+  try {
+    const regex = new RegExp(pattern, 'i')
+
+    return text => regex.test(text)
+  }
+  catch {
+    return null
+  }
+}
+
+function isRegexBlockedWord(blockedWord: string): boolean {
+  return blockedWord.startsWith('/') && blockedWord.endsWith('/') && blockedWord.length > 2
+}
+
 function isPinnedTopicItem(element: HTMLElement): boolean {
   return element.classList.contains('pinned')
     || element.matches(PINNED_TOPIC_ITEM_SELF_SELECTOR)
@@ -140,12 +217,23 @@ function hasPinnedTopicTextMarker(element: Element): boolean {
 }
 
 function hideElement(element: HTMLElement, kind: HomePageHiddenElementKind): void {
-  if (element.getAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR) !== kind) {
-    element.setAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR, kind)
+  const hiddenKinds = getHiddenElementKinds(element)
+  const nextHiddenKinds = hiddenKinds.includes(kind) ? hiddenKinds : [...hiddenKinds, kind]
+
+  if (hiddenKinds.length === 0) {
     element.setAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR, element.style.getPropertyValue('display'))
     element.setAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR, element.style.getPropertyPriority('display'))
   }
 
+  const nextHiddenKindValue = nextHiddenKinds.join(HOME_PAGE_HIDDEN_KIND_SEPARATOR)
+
+  if (element.getAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR) !== nextHiddenKindValue)
+    element.setAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR, nextHiddenKindValue)
+
+  hideElementDisplay(element)
+}
+
+function hideElementDisplay(element: HTMLElement): void {
   if (element.style.getPropertyValue('display') === 'none' && element.style.getPropertyPriority('display') === 'important')
     return
 
@@ -153,11 +241,36 @@ function hideElement(element: HTMLElement, kind: HomePageHiddenElementKind): voi
 }
 
 function restoreHiddenElements(root: ParentNode, kind: HomePageHiddenElementKind): void {
-  Array.from(root.querySelectorAll<HTMLElement>(`[${HOME_PAGE_HIDDEN_ELEMENT_ATTR}="${kind}"]`))
-    .forEach(restoreHiddenElement)
+  Array.from(root.querySelectorAll<HTMLElement>(`[${HOME_PAGE_HIDDEN_ELEMENT_ATTR}]`))
+    .filter(element => getHiddenElementKinds(element).includes(kind))
+    .forEach(element => restoreHiddenElementKind(element, kind))
 }
 
-function restoreHiddenElement(element: HTMLElement): void {
+function restoreHiddenElementKind(element: HTMLElement, kind: HomePageHiddenElementKind): void {
+  const hiddenKinds = getHiddenElementKinds(element)
+
+  if (!hiddenKinds.includes(kind))
+    return
+
+  const remainingKinds = hiddenKinds.filter(hiddenKind => hiddenKind !== kind)
+
+  if (remainingKinds.length > 0) {
+    const nextHiddenKindValue = remainingKinds.join(HOME_PAGE_HIDDEN_KIND_SEPARATOR)
+
+    if (element.getAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR) !== nextHiddenKindValue)
+      element.setAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR, nextHiddenKindValue)
+
+    hideElementDisplay(element)
+    return
+  }
+
+  restoreHiddenElementDisplay(element)
+  element.removeAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR)
+  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR)
+  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR)
+}
+
+function restoreHiddenElementDisplay(element: HTMLElement): void {
   const previousDisplay = element.getAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR) ?? ''
   const previousDisplayPriority = element.getAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR) ?? ''
 
@@ -165,10 +278,21 @@ function restoreHiddenElement(element: HTMLElement): void {
     element.style.setProperty('display', previousDisplay, previousDisplayPriority)
   else
     element.style.removeProperty('display')
+}
 
-  element.removeAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR)
-  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_ATTR)
-  element.removeAttribute(HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR)
+function getHiddenElementKinds(element: HTMLElement): HomePageHiddenElementKind[] {
+  const rawKind = element.getAttribute(HOME_PAGE_HIDDEN_ELEMENT_ATTR)
+
+  if (!rawKind)
+    return []
+
+  return rawKind
+    .split(HOME_PAGE_HIDDEN_KIND_SEPARATOR)
+    .filter(isHomePageHiddenElementKind)
+}
+
+function isHomePageHiddenElementKind(kind: string): kind is HomePageHiddenElementKind {
+  return kind === 'pinned-topic' || kind === 'blocked-word'
 }
 
 function normalizeTextForMatching(text: string): string {

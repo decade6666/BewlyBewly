@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify Linux.do settings panel and drawer boundaries"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify settings defaults, boundary mapping, and cleanup options"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Verify lint, typecheck, tests, and metadata hygiene"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check duplicated filter/list logic and existing pattern reuse"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check cross-layer data flow and edge cases"}

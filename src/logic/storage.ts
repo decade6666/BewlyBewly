@@ -111,6 +111,8 @@ export interface Settings {
   useSearchPageModeOnHomePage: boolean
   searchPageModeWallpaperFixed: boolean
   hideHomePagePinnedTopics: boolean
+  enableHomePageBlockedWords: boolean
+  homePageBlockedWords: string[]
 
   adaptToOtherPageStyles: boolean
   showTopBar: boolean
@@ -216,6 +218,8 @@ export const originalSettings: Settings = {
   useSearchPageModeOnHomePage: false,
   searchPageModeWallpaperFixed: false,
   hideHomePagePinnedTopics: true,
+  enableHomePageBlockedWords: false,
+  homePageBlockedWords: [],
 
   adaptToOtherPageStyles: true,
   showTopBar: true,
