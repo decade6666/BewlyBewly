@@ -261,3 +261,36 @@ Rolled back commit b9bddac0: deleted .github/workflows/release-it.yml, scripts/s
 ### Next Steps
 
 - None - task complete
+
+## Session 9: Fix drawer click routing and capture specs
+
+**Date**: 2026-06-10
+**Task**: Fix drawer click routing and capture specs
+**Branch**: `main`
+
+### Summary
+
+Fixed Linux.do drawer link clicks under Shadow DOM by resolving the real click target with composedPath, kept iframe sandbox protections, validated with targeted tests/typecheck/lint, and captured the drawer click/version contracts in frontend specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `21a181e1` | (see git log) |
+| `2c15dc25` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
