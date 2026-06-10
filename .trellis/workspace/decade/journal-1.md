@@ -294,3 +294,35 @@ Fixed Linux.do drawer link clicks under Shadow DOM by resolving the real click t
 ### Next Steps
 
 - None - task complete
+
+## Session 10: Release v0.1.2 to GitHub
+
+**Date**: 2026-06-10
+**Task**: Release v0.1.2 to GitHub
+**Branch**: `main`
+
+### Summary
+
+Prepared and published GitHub Release v0.1.2 by bumping the package version, validating release-related tests, building and verifying extension.zip plus extension-firefox.zip, generating concise release notes, tagging v0.1.2, and uploading both packaged artifacts to the GitHub release.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f7f3990` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
