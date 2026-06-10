@@ -469,6 +469,107 @@ docs/CONTRIBUTING-jyut.md
 
 ---
 
+## Scenario: Package Version, Manifest Version, and Display Version
+
+### 1. Scope / Trigger
+
+- Trigger: changing extension version metadata, generated manifest identity, or About/settings UI version display.
+- Applies to `package.json`, `src/manifest.ts`, `src/components/Settings/About/About.vue`, generated `extension/manifest.json`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a metadata/build contract because npm tooling expects SemVer, while WebExtension manifest and user-facing UI may use a shorter display version.
+
+### 2. Signatures
+
+Package metadata:
+
+```json
+{
+  "version": "0.1.0"
+}
+```
+
+Manifest generation:
+
+```typescript
+function formatManifestVersion(version: string): string
+
+const manifest: Manifest.WebExtensionManifest = {
+  version: formatManifestVersion(pkg.version),
+}
+```
+
+About UI display:
+
+```typescript
+const displayVersion = computed(() => formatDisplayVersion(version))
+```
+
+### 3. Contracts
+
+| Field | Contract |
+|------|----------|
+| `package.json.version` | Must remain SemVer-valid for pnpm/npm tooling and `npm-run-all`; use `0.1.0`, not `0.1`. |
+| `manifest.version` | May be formatted from package SemVer to the extension-facing value, such as `0.1`. |
+| About UI display | May use the same display format as the extension-facing version, such as `v0.1`. |
+| Build scripts | Keep existing `run-s` / `run-p` scripts unless a task explicitly changes the build runner. |
+| Tests | Assert package version, manifest version, and UI display version separately when they intentionally differ. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| User asks for `v0.1` display | Keep `package.json.version` SemVer-valid and format only the manifest/UI value. |
+| `package.json.version` is set to `0.1` | Treat as a regression because npm tooling can reject the invalid SemVer. |
+| Build scripts are rewritten only to support an invalid package version | Revert the script rewrite and use an explicit formatter instead. |
+| Generated `extension/manifest.json` has the wrong version after build | Fix `src/manifest.ts` formatter or tests before shipping. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `package.json` uses `0.1.0`, About displays `v0.1`, and generated manifest contains `"version": "0.1"`.
+- Base: package, manifest, and UI all use the same SemVer string when no shorter display version is required.
+- Bad: setting package version to `0.1` and replacing project build scripts to work around tooling errors.
+
+### 6. Tests Required
+
+- `src/tests/linuxDoMigration.spec.ts`: assert package version remains SemVer-valid.
+- `src/tests/linuxDoMigration.spec.ts`: assert `getManifest()` emits the expected manifest version.
+- Source test or component source assertion: assert About UI uses a display-version formatter instead of directly rendering package SemVer when display differs.
+- `pnpm build`: assert generated `extension/manifest.json` has the intended version.
+- `pnpm lint` and `pnpm typecheck`: assert metadata and TypeScript changes remain valid.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```json
+{
+  "version": "0.1",
+  "scripts": {
+    "build": "node scripts/custom-runner.mjs clear build:web build:prepare build:js build:bg"
+  }
+}
+```
+
+This changes the build system to accommodate invalid package metadata.
+
+#### Correct
+
+```json
+{
+  "version": "0.1.0",
+  "scripts": {
+    "build": "cross-env NODE_ENV=production run-s clear build:web build:prepare build:js build:bg"
+  }
+}
+```
+
+```typescript
+version: formatManifestVersion(pkg.version)
+```
+
+Keep package metadata valid and format the extension/UI version explicitly.
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.

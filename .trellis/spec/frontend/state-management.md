@@ -157,6 +157,8 @@ interface LinuxDoDrawerRouteChangeDetail {
 Content-script app route functions:
 
 ```typescript
+function getClickTarget(event: MouseEvent): EventTarget | null
+function handleDocumentClick(event: MouseEvent): void
 function openIframeDrawer(topicUrl: string, baseUrl = location.href, updateHistory = true): void
 function handleDrawerClose(): void
 function handlePopState(event: PopStateEvent): void
@@ -181,6 +183,8 @@ function cleanupLinuxDoHomePage(): void
 
 | Field / Function | Contract |
 |---|---|
+| `getClickTarget(event)` | When the app is mounted in a Shadow DOM, resolve the real clicked node with `event.composedPath()[0]`; fall back to `event.target` only when the composed path is empty. |
+| `handleDocumentClick(event)` | Must pass `getClickTarget(event)` into `findLinuxDoTopicLink(...)` before deciding whether to intercept Linux.do topic navigation. |
 | `DrawerHistoryState.drawerUrl` | The normalized Linux.do topic URL shown in the address bar and loaded in the iframe. |
 | `DrawerHistoryState.baseUrl` | The list/homepage URL to restore after closing the drawer or pressing browser Back. |
 | `openIframeDrawer(..., updateHistory = true)` | Opens the drawer, dispatches `{ isOpen: true, baseUrl }`, and pushes `drawerUrl` into top-level history when `updateHistory` is true. |
@@ -195,6 +199,7 @@ function cleanupLinuxDoHomePage(): void
 | Condition | Expected behavior |
 |---|---|
 | Click is default-prevented, non-left button, or has modifier keys | Do not intercept; let Linux.do/browser handle it. |
+| Click originates from content mounted inside Bewly's Shadow DOM | Resolve the clickable node through `event.composedPath()[0]`; do not rely on `event.target` alone because it retargets to the shadow host. |
 | Click target does not resolve to a same-origin `/t/<slug>/<id>` URL | Do not open the drawer or mutate history. |
 | User clicks a topic on a list page | Prevent default navigation, open drawer, push the topic URL, and remember the current list URL as `baseUrl`. |
 | User closes drawer while current history state is the matching drawer state | Call `history.back()` so the address bar returns to `baseUrl`; fallback closes and `replaceState`s after `DRAWER_HISTORY_CLOSE_FALLBACK_MS` if no popstate closes it. |
@@ -206,14 +211,16 @@ function cleanupLinuxDoHomePage(): void
 
 ### 5. Good/Base/Bad Cases
 
-- Good: clicking a Linux.do homepage topic changes the address bar to the topic URL, keeps the underlying homepage cleanup scoped to the original homepage URL, and browser Back restores the list URL.
+- Good: clicking a Linux.do homepage topic from inside Bewly's Shadow DOM still resolves the nested anchor, changes the address bar to the topic URL, keeps the underlying homepage cleanup scoped to the original homepage URL, and browser Back restores the list URL.
 - Base: closing the drawer without a matching drawer history state hides the drawer and uses `replaceState` to restore `baseUrl` if the address bar still shows the topic URL.
+- Bad: `handleDocumentClick` reads only `event.target`, so Shadow DOM retargeting turns the click target into the shadow host and the drawer never opens.
 - Bad: homepage cleanup reads only `location.href`, so opening a topic drawer changes the URL to `/t/...` and pinned homepage rows become visible again.
 
 ### 6. Tests Required
 
 - URL helper tests: assert `normalizeLinuxDoTopicUrl`, `findLinuxDoTopicLink`, `isLinuxDoTopicListPage`, and `isLinuxDoHomePage` accept and reject the expected Linux.do paths.
 - Source boundary tests: assert `App.vue` contains `history.pushState(createDrawerHistoryState(topicUrl, baseUrl), '', topicUrl)` and `useEventListener(window, 'popstate', handlePopState)`.
+- Source boundary tests: assert `App.vue` resolves drawer clicks through `getClickTarget(event)` / `event.composedPath()` before calling `findLinuxDoTopicLink(...)`.
 - Source boundary tests: assert `index.ts` imports `LINUX_DO_DRAWER_ROUTE_CHANGE`, listens for it, and calls `hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, options)`.
 - Regression tests: assert homepage pinned rows/cards hide on `/` and `/latest`, including class, data attribute, title/aria, icon, and text markers.
 - Regression tests: assert disabling cleanup settings restores only Bewly-hidden elements and keeps non-homepage pages untouched.
@@ -224,26 +231,140 @@ function cleanupLinuxDoHomePage(): void
 #### Wrong
 
 ```typescript
-function cleanupLinuxDoHomePage() {
-  hideLinuxDoHomePageElements(document, location.href, {
-    hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  })
-}
+const topicUrl = findLinuxDoTopicLink(event.target, location.href)
 ```
 
-When the drawer pushes a topic URL into the address bar, this makes homepage cleanup think the page is no longer a homepage.
+When the app is mounted under a Shadow DOM host, `event.target` is retargeted to the host element and the topic drawer never opens.
 
 #### Correct
 
 ```typescript
-function cleanupLinuxDoHomePage() {
-  hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
-    hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  })
+const topicUrl = findLinuxDoTopicLink(getClickTarget(event), location.href)
+```
+
+Resolve the real clicked node through `event.composedPath()` first so nested topic links inside the Shadow DOM still open the drawer.
+
+---
+
+## Scenario: Linux.do Homepage Blocked Words and Multi-Reason Cleanup
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing Linux.do homepage cleanup rules that can hide the same topic item for different reasons.
+- Applies to `src/logic/storage.ts`, `src/contentScripts/index.ts`, `src/contentScripts/views/App.vue`, `src/sites/linuxDo.ts`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a cross-layer contract because persisted settings, floating UI state, content-script option mapping, DOM markers, and regression tests must agree.
+
+### 2. Signatures
+
+Settings storage fields:
+
+```typescript
+interface Settings {
+  hideHomePagePinnedTopics: boolean
+  enableHomePageBlockedWords: boolean
+  homePageBlockedWords: string[]
 }
 ```
 
-The cleanup layer uses the underlying list URL while the drawer is open, and falls back to the real URL otherwise.
+Site cleanup option fields:
+
+```typescript
+interface LinuxDoHomePageCleanupOptions {
+  hidePinnedTopics: boolean
+  enableBlockedWords: boolean
+  blockedWords: string[]
+}
+
+function hideLinuxDoHomePageElements(
+  root: ParentNode,
+  url: string,
+  options?: LinuxDoHomePageCleanupOptions,
+): void
+```
+
+Supported blocked-word formats:
+
+```text
+plain keyword       -> case-insensitive substring match against topic item text
+/pattern/           -> case-insensitive RegExp match against topic item text
+'' or whitespace    -> ignored
+invalid /pattern/   -> ignored; cleanup must not throw
+```
+
+### 3. Contracts
+
+| Field / Marker | Layer | Type | Default | Purpose |
+|---|---|---:|---:|---|
+| `enableHomePageBlockedWords` | `Settings` | `boolean` | `false` | Persisted switch for Linux.do homepage blocked-word cleanup. |
+| `homePageBlockedWords` | `Settings` | `string[]` | `[]` | Persisted blocked-word list shown in the floating settings panel. |
+| `enableBlockedWords` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime switch consumed by the site helper. |
+| `blockedWords` | `LinuxDoHomePageCleanupOptions` | `string[]` | `[]` | Runtime list consumed by the site helper. |
+| `pinned-topic` | DOM hidden reason | string token | n/a | Reason token for pinned-topic cleanup. |
+| `blocked-word` | DOM hidden reason | string token | n/a | Reason token for blocked-word cleanup. |
+
+The content script remains the boundary mapper:
+
+```typescript
+hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
+  hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  enableBlockedWords: settings.value.enableHomePageBlockedWords,
+  blockedWords: settings.value.homePageBlockedWords,
+})
+```
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|---|---|
+| URL is not `https://linux.do/` or `https://linux.do/latest` | Return without changing topic items, regardless of blocked-word settings. |
+| `enableBlockedWords` is `false` | Restore only the `blocked-word` reason and preserve any other active reason. |
+| `blockedWords` contains empty or whitespace-only entries | Ignore those entries. |
+| `blockedWords` contains plain text | Match topic item text case-insensitively using substring semantics. |
+| `blockedWords` contains `/pattern/` | Compile a case-insensitive `RegExp` and match topic item text. |
+| `blockedWords` contains invalid regex text | Ignore the invalid regex; do not throw from cleanup or break other rules. |
+| Topic item matches both pinned and blocked-word rules | Closing one switch must not restore the item while the other reason is still active. |
+| Cleanup runs repeatedly through `MutationObserver` | Do not rewrite the same hide-reason markers unnecessarily. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a topic with text `Rust release` is hidden by `rust` or `/r.st/`, and remains hidden if it is also pinned after blocked-word cleanup is disabled.
+- Base: an empty blocked-word list produces no blocked-word hides and does not affect pinned-topic cleanup.
+- Bad: storing only one `data-bewly-home-page-hidden` reason means disabling blocked words can accidentally reveal pinned topics.
+- Bad: compiling user-provided regex without a guard makes a malformed `/[/` entry crash every cleanup pass.
+
+### 6. Tests Required
+
+- Regression tests for plain keyword matching, regex matching, empty ignored entries, and invalid regex non-crash.
+- Regression tests for disabling blocked-word cleanup after an earlier hide and preserving previous inline `display` values.
+- Regression tests for overlap: pinned-topic and blocked-word reasons must restore independently.
+- Source boundary tests should assert `src/contentScripts/index.ts` maps `enableHomePageBlockedWords` to `enableBlockedWords` and watches both the switch and list.
+- Component source tests should assert the floating settings panel exposes the blocked-word switch/list and keeps `role="dialog"` boundaries.
+- Run targeted `src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, and `pnpm lint` after changing this flow.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+function restoreHiddenElements(root: ParentNode, kind: HomePageHiddenElementKind): void {
+  root.querySelectorAll(`[data-bewly-home-page-hidden="${kind}"]`)
+    .forEach(restoreHiddenElement)
+}
+```
+
+This single-reason model restores an element even when another active cleanup reason still applies.
+
+#### Correct
+
+```typescript
+hideLinuxDoHomePageElements(document, location.href, {
+  hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  enableBlockedWords: settings.value.enableHomePageBlockedWords,
+  blockedWords: settings.value.homePageBlockedWords,
+})
+```
+
+Keep all active reasons available to the site helper, remove only the disabled reason, and restore the inline display only when no reasons remain.
 
 ---
 
