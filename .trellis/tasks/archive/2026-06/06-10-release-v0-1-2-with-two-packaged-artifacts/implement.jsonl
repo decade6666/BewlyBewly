@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Use release/build artifact guidance, especially local Chromium artifact generation and metadata hygiene during packaging."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Keep Linux.do drawer/topic cleanup contracts in context so the release includes the intended v0.1.2 behavior changes and related tests."}

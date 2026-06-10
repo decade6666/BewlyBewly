@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Verify build outputs, packaging integrity, and metadata hygiene for release artifacts and release-related docs/config."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify the shipped release still reflects the documented Linux.do drawer click behavior and related regression coverage."}
