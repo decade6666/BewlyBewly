@@ -236,11 +236,20 @@ function shouldIgnoreClick(event: MouseEvent): boolean {
     || event.altKey
 }
 
+function getClickTarget(event: MouseEvent): EventTarget | null {
+  // Shadow DOM retargets event.target to the shadow host for listeners
+  // outside the shadow tree. Use composedPath() to get the actual element
+  // that was clicked inside the shadow DOM.
+  const path = event.composedPath()
+
+  return path.length > 0 ? path[0] : event.target
+}
+
 function handleDocumentClick(event: MouseEvent) {
   if (shouldIgnoreClick(event) || !isLinuxDoTopicListPage(location.href))
     return
 
-  const topicUrl = findLinuxDoTopicLink(event.target, location.href)
+  const topicUrl = findLinuxDoTopicLink(getClickTarget(event), location.href)
 
   if (!topicUrl)
     return
