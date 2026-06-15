@@ -570,6 +570,125 @@ Keep package metadata valid and format the extension/UI version explicitly.
 
 ---
 
+## Scenario: Linux.do Homepage Topic-Tag Injection Across Theme Layout Variants
+
+### 1. Scope / Trigger
+
+- Trigger: changing Linux.do homepage topic-tag injection, anchor selection, or mutation-driven re-rendering in third-party Discourse themes.
+- Applies to `src/sites/linuxDo.ts`, homepage topic-tag DOM helpers, and `src/tests/linuxDoMigration.spec.ts`.
+- Use this contract when a theme can duplicate category markup, hide one copy, or move the visible category badge into a separate table cell.
+
+### 2. Signatures
+
+Topic-tag render entry point:
+
+```typescript
+declare function renderLinuxDoHomePageTopicTags(
+  root: ParentNode,
+  url: string,
+  enabled: boolean,
+): void
+```
+
+Anchor/idempotence helpers:
+
+```typescript
+declare function syncTopicItemTags(element: HTMLElement): void
+
+declare function resolveTagInsertionAnchor(
+  element: HTMLElement,
+): { parent: Element, refNode: Node | null } | null
+
+declare function isElementVisibleWithin(node: Element, boundary: Element): boolean
+
+declare function isTagContainerAtAnchor(
+  container: HTMLElement,
+  anchor: { parent: Element, refNode: Node | null },
+): boolean
+```
+
+Selector contract:
+
+```typescript
+const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
+const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
+const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Homepage scope | Only inject tags on Linux.do homepage list URLs handled by `isLinuxDoHomePage()` (`/` and `/latest`). |
+| Tag source | Rebuild tags from `tag-*` row classes; do not fetch remote tag data for homepage list injection. |
+| Visible anchor priority | Prefer the first category link whose ancestor chain is visible within the topic row. |
+| Horizon fallback | If the visible category badge lives in `td.topic-category-data`, inject there instead of a hidden `.link-bottom-line`. |
+| Default/MOYU fallback | If no visible category badge is found, fall back to `.link-bottom-line` to preserve existing default-theme behavior. |
+| Idempotence boundary | Treat the render as unchanged only when both the tag list and the exact insertion position are unchanged. |
+| Disable behavior | `enabled = false` removes all `[data-bewly-topic-tags]` containers under the provided root. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| The first `a[href^="/c/"]` is inside an ancestor with `display: none` | Skip it and continue searching for a visible category anchor. |
+| A hidden `.link-bottom-line` exists, but `td.topic-category-data` contains the visible category badge | Inject the tag container into `td.topic-category-data`. |
+| The injected container already exists with the same tags but is attached at the wrong anchor | Remove and rebuild it at the resolved anchor; do not no-op. |
+| The row has no `tag-*` classes | Remove any existing injected container and leave no empty placeholder. |
+| The page is outside homepage scope | Do not inject or remove homepage topic tags. |
+| No visible category badge exists, but `.link-bottom-line` exists | Insert at the end of `.link-bottom-line` as the final fallback. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Horizon hides one `.link-bottom-line`, the renderer skips the hidden anchor, and the tag container appears inside `td.topic-category-data`.
+- Base: Default/MOYU exposes a visible category link inside `.link-bottom-line`, and the tag container stays immediately after that badge.
+- Bad: `querySelector(CATEGORY_LINK_SELECTOR)` returns the first DOM match under a hidden ancestor, so the injected tags exist in the DOM but remain invisible.
+
+### 6. Tests Required
+
+- `src/tests/linuxDoMigration.spec.ts`: assert hidden `.link-bottom-line` fixtures inject into `td.topic-category-data` instead of the hidden branch.
+- `src/tests/linuxDoMigration.spec.ts`: assert visible `.link-bottom-line` fixtures preserve the default/MOYU insertion position.
+- `src/tests/linuxDoMigration.spec.ts`: assert an existing injected container with unchanged tags but wrong placement is relocated after rerender.
+- `src/tests/linuxDoMigration.spec.ts`: keep homepage-only scope, no-tag, disable, and idempotence assertions green after anchor logic changes.
+- Validation commands:
+
+```bash
+pnpm exec vitest run src/tests/linuxDoMigration.spec.ts --reporter=verbose --pool=threads --maxWorkers=1 --minWorkers=1
+pnpm lint
+pnpm typecheck
+```
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+function resolveTagInsertionAnchor(element: HTMLElement) {
+  const badgeAnchor = element.querySelector<HTMLAnchorElement>(CATEGORY_LINK_SELECTOR)
+
+  if (badgeAnchor?.parentElement)
+    return { parent: badgeAnchor.parentElement, refNode: badgeAnchor.nextSibling }
+
+  return element.querySelector(TOPIC_TITLE_BOTTOM_LINE_SELECTOR)
+}
+```
+
+This trusts DOM order and can pick a hidden category badge copy.
+
+#### Correct
+
+```typescript
+const visibleAnchor = Array.from(element.querySelectorAll<HTMLAnchorElement>(CATEGORY_LINK_SELECTOR))
+  .find(anchor => isElementVisibleWithin(anchor, element))
+
+if (visibleAnchor?.parentElement)
+  return { parent: visibleAnchor.parentElement, refNode: getTagInsertionRefNode(visibleAnchor.nextSibling) }
+```
+
+This resolves the first visible category badge and keeps rerenders placement-aware.
+
+---
+
 ## Forbidden Patterns
 
 - Do not commit `.claude/settings.local.json`; it contains local session hooks and developer-machine settings.
