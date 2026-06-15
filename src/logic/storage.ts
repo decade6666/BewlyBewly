@@ -111,6 +111,7 @@ export interface Settings {
   useSearchPageModeOnHomePage: boolean
   searchPageModeWallpaperFixed: boolean
   hideHomePagePinnedTopics: boolean
+  showHomePageTopicTags: boolean
   enableHomePageBlockedWords: boolean
   homePageBlockedWords: string[]
 
@@ -218,6 +219,7 @@ export const originalSettings: Settings = {
   useSearchPageModeOnHomePage: false,
   searchPageModeWallpaperFixed: false,
   hideHomePagePinnedTopics: true,
+  showHomePageTopicTags: true,
   enableHomePageBlockedWords: false,
   homePageBlockedWords: [],
 

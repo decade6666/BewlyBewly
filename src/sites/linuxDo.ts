@@ -46,6 +46,12 @@ const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
 const HOME_PAGE_HIDDEN_KIND_SEPARATOR = ' '
 const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
 const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
+// Discourse adds a `tag-{name}` class to each topic row; rebuild visible tag links from it.
+const TOPIC_TAG_CLASS_PATTERN = /^tag-(.+)$/
+const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
+const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
+const CATEGORY_BADGE_SELECTOR = 'a.badge-wrapper[href^="/c/"], a[href^="/c/"] .badge-category'
+const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
 type HomePageBlockedWordMatcher = (text: string) => boolean
@@ -104,6 +110,97 @@ export function hideLinuxDoHomePageElements(
     applyBlockedWordFiltering(root, cleanupOptions.blockedWords ?? [])
   else
     restoreHiddenElements(root, 'blocked-word')
+}
+
+export function renderLinuxDoHomePageTopicTags(root: ParentNode, url: string, enabled: boolean): void {
+  if (!isLinuxDoHomePage(url))
+    return
+
+  if (!enabled) {
+    removeInjectedTopicTags(root)
+    return
+  }
+
+  Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ITEM_SELECTOR))
+    .forEach(syncTopicItemTags)
+}
+
+function syncTopicItemTags(element: HTMLElement): void {
+  const desiredTags = getTopicTagNames(element)
+  const existingContainer = element.querySelector<HTMLElement>(`[${INJECTED_TAG_CONTAINER_ATTR}]`)
+  const currentTags = existingContainer ? getInjectedTagNames(existingContainer) : []
+
+  // compare-before-mutate: skip when nothing changes so injection never retriggers the observer.
+  if (areTagListsEqual(desiredTags, currentTags))
+    return
+
+  if (existingContainer)
+    existingContainer.remove()
+
+  if (desiredTags.length === 0)
+    return
+
+  const anchor = resolveTagInsertionAnchor(element)
+
+  if (!anchor)
+    return
+
+  const container = buildTopicTagContainer(element.ownerDocument, desiredTags)
+  anchor.parent.insertBefore(container, anchor.refNode)
+}
+
+function getTopicTagNames(element: HTMLElement): string[] {
+  return Array.from(element.classList)
+    .map(token => TOPIC_TAG_CLASS_PATTERN.exec(token)?.[1])
+    .filter((name): name is string => Boolean(name))
+}
+
+function getInjectedTagNames(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(`[${INJECTED_TAG_MARKER_ATTR}]`))
+    .map(link => link.textContent ?? '')
+}
+
+function areTagListsEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, refNode: Node | null } | null {
+  const badge = element.querySelector<HTMLElement>(CATEGORY_BADGE_SELECTOR)
+  const badgeAnchor = badge?.closest<HTMLAnchorElement>('a[href^="/c/"]') ?? null
+
+  if (badgeAnchor?.parentElement)
+    return { parent: badgeAnchor.parentElement, refNode: badgeAnchor.nextSibling }
+
+  const bottomLine = element.querySelector<HTMLElement>(TOPIC_TITLE_BOTTOM_LINE_SELECTOR)
+
+  if (bottomLine)
+    return { parent: bottomLine, refNode: null }
+
+  return null
+}
+
+function buildTopicTagContainer(doc: Document, tagNames: string[]): HTMLElement {
+  const container = doc.createElement('span')
+
+  container.className = 'discourse-tags bewly-injected-tags'
+  container.setAttribute(INJECTED_TAG_CONTAINER_ATTR, '')
+
+  tagNames.forEach((name) => {
+    const link = doc.createElement('a')
+
+    link.className = 'discourse-tag box'
+    link.setAttribute(INJECTED_TAG_MARKER_ATTR, '')
+    link.setAttribute('href', `/tag/${encodeURIComponent(name)}`)
+    link.textContent = name
+    container.appendChild(link)
+  })
+
+  return container
+}
+
+function removeInjectedTopicTags(root: ParentNode): void {
+  Array.from(root.querySelectorAll<HTMLElement>(`[${INJECTED_TAG_CONTAINER_ATTR}]`))
+    .forEach(container => container.remove())
 }
 
 export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string | null {

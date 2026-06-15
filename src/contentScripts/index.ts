@@ -5,7 +5,7 @@ import browser from 'webextension-polyfill'
 
 import { LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { settings } from '~/logic'
-import { hideLinuxDoHomePageElements } from '~/sites/linuxDo'
+import { hideLinuxDoHomePageElements, renderLinuxDoHomePageTopicTags } from '~/sites/linuxDo'
 import RESET_BEWLY_CSS from '~/styles/reset.css?raw'
 import { isInIframe } from '~/utils/main'
 
@@ -58,6 +58,7 @@ function setupLinuxDoHomePageCleanup() {
   watch(
     () => [
       settings.value.hideHomePagePinnedTopics,
+      settings.value.showHomePageTopicTags,
       settings.value.enableHomePageBlockedWords,
       ...settings.value.homePageBlockedWords,
     ],
@@ -72,11 +73,14 @@ function handleLinuxDoDrawerRouteChange(event: Event) {
 }
 
 function cleanupLinuxDoHomePage() {
-  hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
+  const cleanupUrl = cleanupUrlOverride ?? location.href
+
+  hideLinuxDoHomePageElements(document, cleanupUrl, {
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
     enableBlockedWords: settings.value.enableHomePageBlockedWords,
     blockedWords: [...settings.value.homePageBlockedWords],
   })
+  renderLinuxDoHomePageTopicTags(document, cleanupUrl, settings.value.showHomePageTopicTags)
 }
 
 function injectApp() {

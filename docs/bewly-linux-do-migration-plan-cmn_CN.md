@@ -147,7 +147,7 @@
 
 | # | 能力 | 来源 | 说明 |
 |---|------|------|------|
-| 5 | **Discourse 话题列表增强** | 新建 `src/sites/linuxDo/topics.ts` | 话题列表样式适配、信息密度调整、分类/标签高亮 |
+| 5 | **Discourse 话题列表增强** | `src/sites/linuxDo.ts` | 话题列表样式适配、信息密度调整、分类/标签高亮；已实现：首页(`/`、`/latest`)从行 `tag-{name}` class 重建并注入 `discourse-tag` 链接到类别徽章后，带 `showHomePageTopicTags` 开关（默认开）|
 | 6 | **分类导航面板** | Dock 或 Sidebar | 利用 `site.json` 的 18 个分类构建快速导航 |
 | 7 | **设置面板裁剪** | `Settings/` | 移除 Bilibili 专用设置（广告屏蔽、弹幕、视频预览等），添加 Linux.do 专用设置（帖子过滤、信任等级显示等） |
 | 8 | **过滤系统移植** | `storage.ts` 过滤相关字段 | 将"按标题/用户过滤视频"改为"按标题/用户/分类过滤帖子" |

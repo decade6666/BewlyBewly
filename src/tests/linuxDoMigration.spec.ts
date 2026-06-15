@@ -12,6 +12,7 @@ import {
   isLinuxDoHomePage,
   isLinuxDoTopicListPage,
   normalizeLinuxDoTopicUrl,
+  renderLinuxDoHomePageTopicTags,
 } from '../sites/linuxDo'
 
 const blockedLegacyTargets = /bilibili|hdslb/i
@@ -694,6 +695,124 @@ describe('linux.do homepage cleanup', () => {
   })
 })
 
+describe('linux.do homepage topic tags', () => {
+  const topicRowFixture = (rowClass: string, badge = true) => `
+    <table>
+      <tbody>
+        <tr class="topic-list-item ${rowClass}" data-testid="topic">
+          <td class="main-link">
+            <span class="link-top-line"><a class="title raw-topic-link" href="/t/welcome/123">Welcome</a></span>
+            <span class="link-bottom-line">${badge ? '<a class="badge-wrapper" href="/c/feedback/2"><span class="badge-category">反馈</span></a>' : ''}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  `
+
+  it('injects tag links after the category badge from tag-* classes', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-free-stuff')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const badge = document.querySelector<HTMLAnchorElement>('a.badge-wrapper[href^="/c/"]')
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+    const links = Array.from(container?.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]') ?? [])
+
+    expect(badge?.nextElementSibling).toBe(container)
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
+    expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
+    expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
+  })
+
+  it('builds an encoded href while keeping the raw tag name as display text', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-公告')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/', true)
+
+    const link = document.querySelector<HTMLAnchorElement>('[data-bewly-topic-tag]')
+
+    expect(link?.textContent).toBe('公告')
+    expect(decodeURIComponent(link?.getAttribute('href') ?? '')).toBe('/tag/公告')
+  })
+
+  it('does not inject anything for rows without tag-* classes', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    expect(document.querySelector('[data-bewly-topic-tags]')).toBeNull()
+  })
+
+  it('does not run on non-homepage pages', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/c/general', true)
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/t/welcome/123', true)
+
+    expect(document.querySelector('[data-bewly-topic-tags]')).toBeNull()
+  })
+
+  it('is idempotent and does not retrigger mutations on repeated runs', async () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-news')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const row = document.querySelector<HTMLElement>('[data-testid="topic"]')
+
+    if (!row)
+      throw new Error('Expected topic fixture')
+
+    const mutations: MutationRecord[] = []
+    const observer = new MutationObserver(records => mutations.push(...records))
+
+    observer.observe(row, { attributes: true, childList: true, characterData: true, subtree: true })
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    observer.disconnect()
+
+    expect(mutations).toEqual([])
+    expect(document.querySelectorAll('[data-bewly-topic-tags]')).toHaveLength(1)
+  })
+
+  it('rebuilds injected tags when the row tag set changes', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const row = document.querySelector<HTMLElement>('[data-testid="topic"]')
+    row?.classList.add('tag-news')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const containers = document.querySelectorAll('[data-bewly-topic-tags]')
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(containers).toHaveLength(1)
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/news'])
+  })
+
+  it('removes injected tags when the feature is disabled', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+    expect(document.querySelector('[data-bewly-topic-tags]')).not.toBeNull()
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', false)
+    expect(document.querySelector('[data-bewly-topic-tags]')).toBeNull()
+  })
+
+  it('falls back to the bottom line when no category badge exists', () => {
+    document.body.innerHTML = topicRowFixture('tag-deals', false)
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const bottomLine = document.querySelector<HTMLElement>('.link-bottom-line')
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+
+    expect(container?.parentElement).toBe(bottomLine)
+  })
+})
+
 describe('linux.do content script and drawer boundaries', () => {
   it('keeps the content script free of Bilibili DOM assumptions', async () => {
     const entrySource = await readFile(resolve('src/contentScripts/index.ts'), 'utf8')
@@ -705,7 +824,8 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('import { LINUX_DO_DRAWER_ROUTE_CHANGE } from \'~/constants/globalEvents\'')
     expect(entrySource).toContain('import { settings } from \'~/logic\'')
     expect(entrySource).toContain('return !isInIframe()')
-    expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {')
+    expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrl, {')
+    expect(entrySource).toContain('renderLinuxDoHomePageTopicTags(document, cleanupUrl, settings.value.showHomePageTopicTags)')
     expect(entrySource).toContain('hidePinnedTopics: settings.value.hideHomePagePinnedTopics')
     expect(entrySource).toContain('enableBlockedWords: settings.value.enableHomePageBlockedWords')
     expect(entrySource).toContain('blockedWords: [...settings.value.homePageBlockedWords]')
@@ -714,6 +834,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
     expect(entrySource).toContain('watch(')
     expect(entrySource).toContain('settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('settings.value.showHomePageTopicTags')
     expect(entrySource).toContain('settings.value.enableHomePageBlockedWords')
     expect(entrySource).toContain('...settings.value.homePageBlockedWords')
     expect(entrySource).not.toContain('isLinuxDoTopicListPage(location.href)')
@@ -726,6 +847,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
     expect(appSource).toContain('class="linux-do-settings-button"')
     expect(appSource).toContain('settings.hideHomePagePinnedTopics')
+    expect(appSource).toContain('settings.showHomePageTopicTags')
     expect(appSource).toContain('settings.enableHomePageBlockedWords')
     expect(appSource).toContain('settings.homePageBlockedWords')
     expect(appSource).toContain('handleBlockedWordsImport')
@@ -748,8 +870,10 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(homeSettingsSource).not.toMatch(/hide_homepage_guideline_banner|hideHomePageGuidelineBanner/)
     expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
     expect(storageSource).not.toContain('hideHomePageGuidelineBanner')
+    expect(storageSource).toContain('showHomePageTopicTags: boolean')
     expect(storageSource).toContain('enableHomePageBlockedWords: boolean')
     expect(storageSource).toContain('homePageBlockedWords: string[]')
+    expect(storageSource).toContain('showHomePageTopicTags: true')
     expect(storageSource).toContain('enableHomePageBlockedWords: false')
     expect(storageSource).toContain('homePageBlockedWords: []')
     expect(storageSource).toContain('void cleanupLegacySettingsStorage()')

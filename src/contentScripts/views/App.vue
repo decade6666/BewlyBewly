@@ -37,6 +37,7 @@ const appMessages = {
     openSettings: 'Open Linux.do settings',
     settings: 'Linux.do settings',
     settingsDesc: 'These options apply to the current Linux.do page.',
+    showTopicTags: 'Show homepage topic tags',
   },
   'cmn-CN': {
     addBlockedWord: '添加',
@@ -55,6 +56,7 @@ const appMessages = {
     openSettings: '打开 Linux.do 设置',
     settings: 'Linux.do 设置',
     settingsDesc: '这些选项会应用到当前 Linux.do 页面。',
+    showTopicTags: '显示首页帖子标签',
   },
   'cmn-TW': {
     addBlockedWord: '新增',
@@ -73,6 +75,7 @@ const appMessages = {
     openSettings: '開啟 Linux.do 設定',
     settings: 'Linux.do 設定',
     settingsDesc: '這些選項會套用到目前的 Linux.do 頁面。',
+    showTopicTags: '顯示首頁話題標籤',
   },
   jyut: {
     addBlockedWord: '加入',
@@ -91,6 +94,7 @@ const appMessages = {
     openSettings: '打開 Linux.do 設定',
     settings: 'Linux.do 設定',
     settingsDesc: '呢啲選項會套用喺而家嘅 Linux.do 頁面。',
+    showTopicTags: '顯示首頁話題標籤',
   },
 } as const
 
@@ -375,6 +379,11 @@ onBeforeUnmount(() => {
       <label class="linux-do-settings-option">
         <input v-model="settings.hideHomePagePinnedTopics" type="checkbox">
         <span>{{ appLabels.hidePinnedTopics }}</span>
+      </label>
+
+      <label class="linux-do-settings-option">
+        <input v-model="settings.showHomePageTopicTags" type="checkbox">
+        <span>{{ appLabels.showTopicTags }}</span>
       </label>
 
       <label class="linux-do-settings-option">
