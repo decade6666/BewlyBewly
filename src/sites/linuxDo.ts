@@ -52,6 +52,7 @@ const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
 const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
 const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
+const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
 type HomePageBlockedWordMatcher = (text: string) => boolean
@@ -129,20 +130,17 @@ function syncTopicItemTags(element: HTMLElement): void {
   const desiredTags = getTopicTagNames(element)
   const existingContainer = element.querySelector<HTMLElement>(`[${INJECTED_TAG_CONTAINER_ATTR}]`)
   const currentTags = existingContainer ? getInjectedTagNames(existingContainer) : []
+  const anchor = resolveTagInsertionAnchor(element)
+  const tagsUnchanged = areTagListsEqual(desiredTags, currentTags)
+  const placementUnchanged = !existingContainer || (anchor !== null && isTagContainerAtAnchor(existingContainer, anchor))
 
-  // compare-before-mutate: skip when nothing changes so injection never retriggers the observer.
-  if (areTagListsEqual(desiredTags, currentTags))
+  if (tagsUnchanged && placementUnchanged)
     return
 
   if (existingContainer)
     existingContainer.remove()
 
-  if (desiredTags.length === 0)
-    return
-
-  const anchor = resolveTagInsertionAnchor(element)
-
-  if (!anchor)
+  if (desiredTags.length === 0 || !anchor)
     return
 
   const container = buildTopicTagContainer(element.ownerDocument, desiredTags)
@@ -164,11 +162,41 @@ function areTagListsEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
-function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, refNode: Node | null } | null {
-  const badgeAnchor = element.querySelector<HTMLAnchorElement>(CATEGORY_LINK_SELECTOR)
+function isElementVisibleWithin(node: Element, boundary: Element): boolean {
+  let current: Element | null = node
 
-  if (badgeAnchor?.parentElement)
-    return { parent: badgeAnchor.parentElement, refNode: badgeAnchor.nextSibling }
+  while (current && current !== boundary) {
+    if (current.ownerDocument.defaultView?.getComputedStyle(current).display === 'none')
+      return false
+
+    current = current.parentElement
+  }
+
+  return true
+}
+
+function getTagInsertionRefNode(node: ChildNode | null): ChildNode | null {
+  if (!(node instanceof HTMLElement) || !node.hasAttribute(INJECTED_TAG_CONTAINER_ATTR))
+    return node
+
+  return node.nextSibling
+}
+
+function isTagContainerAtAnchor(container: HTMLElement, anchor: { parent: Element, refNode: Node | null }): boolean {
+  return container.parentElement === anchor.parent && container.nextSibling === anchor.refNode
+}
+
+function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, refNode: Node | null } | null {
+  const categoryAnchors = Array.from(element.querySelectorAll<HTMLAnchorElement>(CATEGORY_LINK_SELECTOR))
+  const visibleAnchor = categoryAnchors.find(anchor => isElementVisibleWithin(anchor, element))
+
+  if (visibleAnchor?.parentElement)
+    return { parent: visibleAnchor.parentElement, refNode: getTagInsertionRefNode(visibleAnchor.nextSibling) }
+
+  const categoryCell = element.querySelector<HTMLElement>(TOPIC_CATEGORY_CELL_SELECTOR)
+
+  if (categoryCell)
+    return { parent: categoryCell, refNode: null }
 
   const bottomLine = element.querySelector<HTMLElement>(TOPIC_TITLE_BOTTOM_LINE_SELECTOR)
 

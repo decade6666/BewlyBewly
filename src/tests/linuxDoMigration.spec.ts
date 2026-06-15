@@ -708,6 +708,22 @@ describe('linux.do homepage topic tags', () => {
       </tbody>
     </table>
   `
+  const horizonTopicRowFixture = (bottomLineHidden = true) => `
+    <table>
+      <tbody>
+        <tr class="topic-list-item category-feedback tag-公告" data-testid="topic">
+          <td class="main-link topic-list-data">
+            <div class="link-bottom-line"${bottomLineHidden ? ' style="display: none"' : ''}>
+              <a class="badge-category__wrapper" href="/c/feedback/2">运营反馈</a>
+            </div>
+          </td>
+          <td class="topic-category-data">
+            <a class="badge-category__wrapper" href="/c/feedback/2">运营反馈</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  `
 
   it('injects tag links after the category badge from tag-* classes', () => {
     document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-free-stuff')
@@ -810,6 +826,66 @@ describe('linux.do homepage topic tags', () => {
     const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
 
     expect(container?.parentElement).toBe(bottomLine)
+  })
+
+  it('repositions an existing container after the visible category badge when tags are unchanged', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals')
+
+    const bottomLine = document.querySelector<HTMLElement>('.link-bottom-line')
+
+    bottomLine?.insertAdjacentHTML(
+      'beforeend',
+      '<span class="discourse-tags bewly-injected-tags" data-bewly-topic-tags><a class="discourse-tag box" data-bewly-topic-tag href="/tag/deals">deals</a></span><a class="badge-wrapper" href="/c/feedback/2"><span class="badge-category">重复分类</span></a>',
+    )
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const badge = document.querySelector<HTMLAnchorElement>('a.badge-wrapper[href^="/c/"]')
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+
+    expect(document.querySelectorAll('[data-bewly-topic-tags]')).toHaveLength(1)
+    expect(badge?.nextElementSibling).toBe(container)
+  })
+
+  it('injects into the visible category cell when Horizon hides the first bottom line', () => {
+    document.body.innerHTML = horizonTopicRowFixture(true)
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+
+    expect(container).toBeTruthy()
+    expect(container?.closest('.link-bottom-line')).toBeNull()
+    expect(container?.closest('td.topic-category-data')).toBeTruthy()
+  })
+
+  it('relocates an injected container out of a hidden Horizon bottom line on rerun', () => {
+    document.body.innerHTML = horizonTopicRowFixture(true)
+
+    document.querySelector('.link-bottom-line')?.insertAdjacentHTML(
+      'beforeend',
+      '<span class="discourse-tags bewly-injected-tags" data-bewly-topic-tags><a class="discourse-tag box" data-bewly-topic-tag href="/tag/%E5%85%AC%E5%91%8A">公告</a></span>',
+    )
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/', true)
+
+    const containers = document.querySelectorAll<HTMLElement>('[data-bewly-topic-tags]')
+    const container = containers[0]
+
+    expect(containers).toHaveLength(1)
+    expect(container?.closest('.link-bottom-line')).toBeNull()
+    expect(container?.closest('td.topic-category-data')).toBeTruthy()
+  })
+
+  it('keeps default and MOYU behavior when the first bottom line stays visible', () => {
+    document.body.innerHTML = horizonTopicRowFixture(false)
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+
+    expect(container).toBeTruthy()
+    expect(container?.closest('.link-bottom-line')).toBeTruthy()
   })
 })
 
