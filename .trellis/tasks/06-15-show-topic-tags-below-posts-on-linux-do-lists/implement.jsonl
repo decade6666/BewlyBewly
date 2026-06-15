@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "DOM 注入/幂等/不可变与禁止模式红线；compare-before-mutate 与错误处理标准"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "settings(useStorageLocal) 存储模式：如何新增 showHomePageTopicTags 字段与默认值、与 watch 联动"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "App.vue 设置面板新增 checkbox + i18n appMessages 的组件约定"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Settings 接口类型与函数签名的类型安全要求"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有 isLinuxDoHomePage / TOPIC_ITEM_SELECTOR / restoreHiddenElements 模式，避免重复实现"}
