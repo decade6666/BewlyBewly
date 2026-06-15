@@ -50,7 +50,7 @@ const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-
 const TOPIC_TAG_CLASS_PATTERN = /^tag-(.+)$/
 const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
 const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
-const CATEGORY_BADGE_SELECTOR = 'a.badge-wrapper[href^="/c/"], a[href^="/c/"] .badge-category'
+const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
@@ -165,8 +165,7 @@ function areTagListsEqual(left: string[], right: string[]): boolean {
 }
 
 function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, refNode: Node | null } | null {
-  const badge = element.querySelector<HTMLElement>(CATEGORY_BADGE_SELECTOR)
-  const badgeAnchor = badge?.closest<HTMLAnchorElement>('a[href^="/c/"]') ?? null
+  const badgeAnchor = element.querySelector<HTMLAnchorElement>(CATEGORY_LINK_SELECTOR)
 
   if (badgeAnchor?.parentElement)
     return { parent: badgeAnchor.parentElement, refNode: badgeAnchor.nextSibling }
