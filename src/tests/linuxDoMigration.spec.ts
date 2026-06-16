@@ -26,7 +26,7 @@ describe('linux.do migration manifest and package metadata', () => {
     const contentScript = manifest.content_scripts?.[0]
 
     expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
-    expect(manifest.version).toBe('0.1.3')
+    expect(manifest.version).toBe('0.1.4')
     expect(manifest.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -51,14 +51,14 @@ describe('linux.do migration manifest and package metadata', () => {
   })
 
   it('formats the semver package version for the WebExtension manifest', () => {
-    expect(formatManifestVersion(pkg.version)).toBe('0.1.3')
+    expect(formatManifestVersion(pkg.version)).toBe('0.1.4')
     expect(formatManifestVersion('0.1.2')).toBe('0.1.2')
   })
 
   it('uses Linux.do for local extension launch metadata', () => {
     expect(pkg.name).toBe('bewly-linux-do')
     expect(pkg.displayName).toBe('BewlyLinuxDo')
-    expect(pkg.version).toBe('0.1.3')
+    expect(pkg.version).toBe('0.1.4')
     expect(pkg.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -71,7 +71,7 @@ describe('linux.do migration manifest and package metadata', () => {
   it('shows the v0.1 Linux.do plugin UI description in About', async () => {
     const aboutSource = await readFile(resolve('src/components/Settings/About/About.vue'), 'utf8')
 
-    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.3')
+    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.4')
     expect(aboutSource).toContain(
       'const displayVersion = version.replace(/^(\\d+\\.\\d+)\\.0$/, \'$1\')',
     )
@@ -696,18 +696,38 @@ describe('linux.do homepage cleanup', () => {
 })
 
 describe('linux.do homepage topic tags', () => {
-  const topicRowFixture = (rowClass: string, badge = true) => `
-    <table>
-      <tbody>
-        <tr class="topic-list-item ${rowClass}" data-testid="topic">
-          <td class="main-link">
-            <span class="link-top-line"><a class="title raw-topic-link" href="/t/welcome/123">Welcome</a></span>
-            <span class="link-bottom-line">${badge ? '<a class="badge-wrapper" href="/c/feedback/2"><span class="badge-category">反馈</span></a>' : ''}</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  `
+  const topicRowFixture = (
+    rowClass: string,
+    options: {
+      badge?: boolean
+      visibleCategoryCell?: boolean
+    } = {},
+  ) => {
+    const { badge = true, visibleCategoryCell = false } = options
+    const hiddenBadge = badge
+      ? '<a class="badge-wrapper" href="/c/feedback/2"><span class="badge-category">反馈</span></a>'
+      : ''
+    const visibleBadge = badge
+      ? '<a class="badge-category__wrapper" href="/c/feedback/2"><span class="badge-category">反馈</span></a>'
+      : ''
+    const visibleCategoryCellHtml = visibleCategoryCell
+      ? `<td class="topic-category-data">${visibleBadge}</td>`
+      : ''
+
+    return `
+      <table>
+        <tbody>
+          <tr class="topic-list-item ${rowClass}" data-testid="topic">
+            <td class="main-link">
+              <span class="link-top-line"><a class="title raw-topic-link" href="/t/welcome/123">Welcome</a></span>
+              <span class="link-bottom-line">${hiddenBadge}</span>
+            </td>
+            ${visibleCategoryCellHtml}
+          </tr>
+        </tbody>
+      </table>
+    `
+  }
 
   it('injects tag links after the category badge from tag-* classes', () => {
     document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-free-stuff')
@@ -719,9 +739,45 @@ describe('linux.do homepage topic tags', () => {
     const links = Array.from(container?.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]') ?? [])
 
     expect(badge?.nextElementSibling).toBe(container)
+    expect(container?.style.display ?? '').not.toBe('contents')
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
     expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
     expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
+  })
+
+  it('prefers the visible category column when the bottom line badge is hidden by card layout', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-free-stuff', {
+      visibleCategoryCell: true,
+    })
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+    const visibleCell = document.querySelector<HTMLElement>('td.topic-category-data')
+    const visibleBadge = document.querySelector<HTMLAnchorElement>('td.topic-category-data a.badge-category__wrapper')
+
+    expect(container?.parentElement).toBe(visibleCell)
+    expect(container?.style.display).toBe('contents')
+    expect(visibleBadge?.nextElementSibling).toBe(container)
+    expect(document.querySelector('.link-bottom-line [data-bewly-topic-tags]')).toBeNull()
+  })
+
+  it('repositions injected tags when a better visible category anchor becomes available', () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-free-stuff')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+    expect(document.querySelector('.link-bottom-line [data-bewly-topic-tags]')).not.toBeNull()
+
+    const topic = document.querySelector<HTMLElement>('[data-testid="topic"]')
+    topic?.insertAdjacentHTML('beforeend', '<td class="topic-category-data"><a class="badge-category__wrapper" href="/c/feedback/2"><span class="badge-category">反馈</span></a></td>')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+    const visibleCell = document.querySelector<HTMLElement>('td.topic-category-data')
+
+    expect(container?.parentElement).toBe(visibleCell)
+    expect(document.querySelector('.link-bottom-line [data-bewly-topic-tags]')).toBeNull()
   })
 
   it('builds an encoded href while keeping the raw tag name as display text', () => {
@@ -774,6 +830,30 @@ describe('linux.do homepage topic tags', () => {
     expect(document.querySelectorAll('[data-bewly-topic-tags]')).toHaveLength(1)
   })
 
+  it('is idempotent when tags are in the visible category column', async () => {
+    document.body.innerHTML = topicRowFixture('category-feedback tag-deals tag-news', {
+      visibleCategoryCell: true,
+    })
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const row = document.querySelector<HTMLElement>('[data-testid="topic"]')
+
+    if (!row)
+      throw new Error('Expected topic fixture')
+
+    const mutations: MutationRecord[] = []
+    const observer = new MutationObserver(records => mutations.push(...records))
+
+    observer.observe(row, { attributes: true, childList: true, characterData: true, subtree: true })
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    observer.disconnect()
+
+    expect(mutations).toEqual([])
+    expect(document.querySelectorAll('[data-bewly-topic-tags]')).toHaveLength(1)
+  })
+
   it('rebuilds injected tags when the row tag set changes', () => {
     document.body.innerHTML = topicRowFixture('category-feedback tag-deals')
 
@@ -802,7 +882,7 @@ describe('linux.do homepage topic tags', () => {
   })
 
   it('falls back to the bottom line when no category badge exists', () => {
-    document.body.innerHTML = topicRowFixture('tag-deals', false)
+    document.body.innerHTML = topicRowFixture('tag-deals', { badge: false })
 
     renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
 

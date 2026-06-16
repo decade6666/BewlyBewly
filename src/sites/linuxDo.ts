@@ -50,7 +50,8 @@ const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-
 const TOPIC_TAG_CLASS_PATTERN = /^tag-(.+)$/
 const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
 const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
-const CATEGORY_BADGE_SELECTOR = 'a.badge-wrapper[href^="/c/"], a[href^="/c/"] .badge-category'
+const VISIBLE_CATEGORY_BADGE_SELECTOR = 'td.topic-category-data a[href^="/c/"]'
+const CATEGORY_BADGE_SELECTOR = 'a.badge-wrapper[href^="/c/"], a.badge-category__wrapper[href^="/c/"], a[href^="/c/"] .badge-category'
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
@@ -130,23 +131,35 @@ function syncTopicItemTags(element: HTMLElement): void {
   const existingContainer = element.querySelector<HTMLElement>(`[${INJECTED_TAG_CONTAINER_ATTR}]`)
   const currentTags = existingContainer ? getInjectedTagNames(existingContainer) : []
 
-  // compare-before-mutate: skip when nothing changes so injection never retriggers the observer.
-  if (areTagListsEqual(desiredTags, currentTags))
+  if (desiredTags.length === 0) {
+    existingContainer?.remove()
     return
-
-  if (existingContainer)
-    existingContainer.remove()
-
-  if (desiredTags.length === 0)
-    return
+  }
 
   const anchor = resolveTagInsertionAnchor(element)
 
   if (!anchor)
     return
 
+  const normalizedRefNode = existingContainer && anchor.refNode === existingContainer
+    ? existingContainer.nextSibling
+    : anchor.refNode
+  const isContainerAtAnchor = existingContainer?.parentElement === anchor.parent
+    && (anchor.refNode === existingContainer || existingContainer?.nextSibling === anchor.refNode)
+  const shouldReuseExistingContainer = areTagListsEqual(desiredTags, currentTags) && isContainerAtAnchor
+
+  // compare-before-mutate: skip when neither the tag set nor insertion point changes.
+  if (shouldReuseExistingContainer)
+    return
+
+  existingContainer?.remove()
+
   const container = buildTopicTagContainer(element.ownerDocument, desiredTags)
-  anchor.parent.insertBefore(container, anchor.refNode)
+
+  if (anchor.parent.matches('td.topic-category-data'))
+    container.style.display = 'contents'
+
+  anchor.parent.insertBefore(container, normalizedRefNode)
 }
 
 function getTopicTagNames(element: HTMLElement): string[] {
@@ -165,6 +178,11 @@ function areTagListsEqual(left: string[], right: string[]): boolean {
 }
 
 function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, refNode: Node | null } | null {
+  const visibleCategoryBadge = element.querySelector<HTMLAnchorElement>(VISIBLE_CATEGORY_BADGE_SELECTOR)
+
+  if (visibleCategoryBadge?.parentElement)
+    return { parent: visibleCategoryBadge.parentElement, refNode: visibleCategoryBadge.nextSibling }
+
   const badge = element.querySelector<HTMLElement>(CATEGORY_BADGE_SELECTOR)
   const badgeAnchor = badge?.closest<HTMLAnchorElement>('a[href^="/c/"]') ?? null
 
