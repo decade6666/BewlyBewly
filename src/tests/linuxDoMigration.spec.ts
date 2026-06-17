@@ -999,7 +999,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(drawerSource).not.toMatch(blockedLegacyTargets)
     expect(drawerSource).toContain('handleOpenInNewTab')
     expect(drawerSource).toContain('handleClose')
-    expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms"')
+    expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"')
     expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
   })
 })

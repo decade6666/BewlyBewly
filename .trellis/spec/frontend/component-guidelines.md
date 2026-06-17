@@ -60,6 +60,7 @@ Drawer control contract:
 | `IframeDrawer.close` emit | Emits only after close animation and iframe resource release complete. |
 | Drawer header | Uses `.iframe-drawer-header`, absolute top positioning, `pointer-events: none` on the header container, and `pointer-events: auto` on buttons. |
 | Drawer content | Uses `.iframe-drawer-content` with explicit `:style="{ top: drawerTopOffset }"` so iframe content starts below the header when controls are visible. |
+| Drawer iframe sandbox | `sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"`. `allow-popups` lets in-post links (`window.open` / `target="_blank"`) open new tabs; `allow-popups-to-escape-sandbox` keeps those tabs out of the sandbox so external pages load normally. Never add `allow-top-navigation*`. The iframe `src` is always a same-origin linux.do URL (validated by `normalizeLinuxDoTopicUrl`), so these tokens do not widen the iframe's reach over the host page. |
 | Drawer buttons | Only “Open in new tab” and “Close / Esc” are allowed. The legacy “Copy link” button and clipboard behavior are removed. |
 | Floating settings button | Uses `.linux-do-settings-button`, fixed bottom-right placement, and `z-index: 2147483646`. |
 | Drawer root | Uses `.linux-do-drawer-root`, fixed full-screen placement, `z-index: 2147483647`, and is mounted only while `showIframeDrawer` is true. |
@@ -75,6 +76,9 @@ Drawer control contract:
 | Drawer iframe loads slowly or fails | Header buttons remain visible because they are not inside the iframe content area. |
 | User presses `Esc` in the window or iframe | Drawer closes through `handleClose` and releases iframe resources. |
 | User clicks “Open in new tab” | Opens `props.url` in a new tab and then closes the drawer. |
+| User clicks an in-post link that opens a new tab | The browser opens the link in a new, non-sandboxed tab after Linux.do’s external-link confirmation. |
+| Drawer iframe sandbox drops `allow-popups`/`allow-popups-to-escape-sandbox` | Treat as a regression; in-post links silently fail to open a new tab. |
+| `allow-top-navigation*` appears in the drawer iframe sandbox | Treat as a regression; in-post links can navigate the top page out of the drawer. |
 | Copy-link behavior appears in the drawer | Treat as a regression; remove clipboard logic and localized copy labels. |
 | Top-level history calls appear in `IframeDrawer.vue` | Treat as a regression; history belongs in the content-script app. |
 
@@ -89,6 +93,7 @@ Drawer control contract:
 - Source regression: assert `App.vue` contains `class="linux-do-settings-button"` and the wrapper opening tag includes `v-if="showIframeDrawer"`.
 - Source regression: assert `IframeDrawer.vue` imports `Button`, contains `handleOpenInNewTab` and `handleClose`, and does not contain `copyLink`, `clipboard`, or localized “Copy link” text.
 - Source regression: assert `IframeDrawer.vue` does not call `history.pushState`, `history.replaceState`, or `history.back`.
+- Source regression: assert `IframeDrawer.vue` contains the exact `sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"` string; `linuxDoMigration.spec.ts` asserts it verbatim, so update that assertion in lockstep with any sandbox change.
 - Behavior/build validation after component changes: run targeted `src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, `pnpm lint`, and `pnpm build` when packaging is affected.
 - Manual browser check when possible: verify the settings button is visible on Linux.do and drawer controls remain visible over the iframe.
 
@@ -113,7 +118,7 @@ The iframe can cover controls, and the drawer reintroduces removed clipboard beh
   <Button pointer-events-auto @click="handleClose">{{ drawerLabels.close }}</Button>
 </div>
 <div v-if="show" class="iframe-drawer-content" :style="{ top: drawerTopOffset }">
-  <iframe :src="props.url" sandbox="allow-scripts allow-same-origin allow-forms" />
+  <iframe :src="props.url" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" />
 </div>
 ```
 
@@ -158,3 +163,6 @@ The header owns controls, iframe content starts below the header, and only appro
 - Putting drawer action buttons inside the iframe content region.
 - Reintroducing clipboard/copy-link behavior in `IframeDrawer.vue`.
 - Handling top-level browser history inside reusable drawer components instead of `App.vue`.
+- Tightening the drawer iframe sandbox (dropping `allow-popups` / `allow-popups-to-escape-sandbox`) so in-post links can no longer open new tabs.
+- Adding `allow-top-navigation*` to the drawer iframe, letting in-post links navigate the whole page out of the drawer.
+- Changing the iframe sandbox string without updating its verbatim assertion in `linuxDoMigration.spec.ts`.

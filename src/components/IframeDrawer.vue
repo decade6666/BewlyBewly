@@ -183,7 +183,7 @@ onKeyStroke('Escape', handleEscape, { target: window })
             v-show="showIframe"
             ref="iframeRef"
             :src="props.url"
-            sandbox="allow-scripts allow-same-origin allow-forms"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             frameborder="0"
             pointer-events-auto
             pos="relative left-0"
