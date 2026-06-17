@@ -326,3 +326,35 @@ Prepared and published GitHub Release v0.1.2 by bumping the package version, val
 ### Next Steps
 
 - None - task complete
+
+## Session 11: 修复 Horizon 主题下注入 topic tag 的布局错乱
+
+**Date**: 2026-06-17
+**Task**: 修复 Horizon 主题下注入 topic tag 的布局错乱
+**Branch**: `main`
+
+### Summary
+
+根因：注入容器复用站点类名 discourse-tags，继承 Horizon 主题的 .discourse-tags{display:contents}，在 display:flex 的 td.topic-category-data 内使 span 被移出布局树、内部 a 标签变成父级 flex 项，导致 tag 竖排/挤压/撑高。修复：buildTopicTagContainer 给容器加内联 display:inline-flex !important + flex-wrap/align-items/gap，覆盖站点类选择器，对 default/MOYU 无回归。补 default 与 Horizon 两用例的 display 断言并更新 frontend 契约文档。测试 72/72、typecheck、lint 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f963aec6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

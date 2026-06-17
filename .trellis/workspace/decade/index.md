@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
-- **Last Active**: 2026-06-10
+- **Total Sessions**: 11
+- **Last Active**: 2026-06-17
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~329 | Active |
+| `journal-1.md` | ~361 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-06-17 | 修复 Horizon 主题下注入 topic tag 的布局错乱 | `f963aec6` | `main` |
 | 10 | 2026-06-10 | Release v0.1.2 to GitHub | `4f7f3990` | `main` |
 | 9 | 2026-06-10 | Fix drawer click routing and capture specs | `21a181e1`, `2c15dc25` | `main` |
 | 8 | 2026-06-07 | Revert GitHub Packages publish path; keep releases only | `0e842ef0` | `main` |
