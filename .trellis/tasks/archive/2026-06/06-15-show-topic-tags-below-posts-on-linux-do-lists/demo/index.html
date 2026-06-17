@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Latest - Linux.do (Demo Harness)</title>
+  <style>
+    /* ===== Reset & base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      line-height: 1.5;
+      padding: 0;
+    }
+    a { color: #08c; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ===== Top bar (simplified) ===== */
+    .d-header {
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .d-header .title { font-size: 18px; font-weight: 700; color: #333; }
+    .d-header .badge { font-size: 11px; background: #e8e8e8; padding: 2px 8px; border-radius: 3px; color: #666; }
+
+    /* ===== Topic list container ===== */
+    .topic-list-container {
+      max-width: 1020px;
+      margin: 20px auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    table.topic-list {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.topic-list thead th {
+      background: #fafafa;
+      border-bottom: 2px solid #e0e0e0;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 12px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ===== Topic row ===== */
+    tr.topic-list-item {
+      border-bottom: 1px solid #eee;
+      transition: background 0.15s;
+    }
+    tr.topic-list-item:hover { background: #f9f9f9; }
+    tr.topic-list-item td { padding: 10px 12px; vertical-align: top; }
+
+    /* --- Main column (title + bottom-line) --- */
+    td.main-link { width: 60%; }
+    .topic-title a {
+      font-size: 15px;
+      font-weight: 500;
+      color: #222;
+    }
+    .topic-title a:visited { color: #846; }
+
+    /* .link-bottom-line: normally hidden in Horizon, contains category anchor */
+    .link-bottom-line {
+      display: none;
+      font-size: 12px;
+      margin-top: 4px;
+      color: #888;
+    }
+
+    /* --- Category cell: visible on Horizon lists --- */
+    td.topic-category-data { width: 15%; }
+    .badge-wrapper {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      color: #fff;
+      font-weight: 500;
+    }
+    .badge-category { display: inline; }
+
+    /* Category colours */
+    .category-general      { background: #25aae1; }
+    .category-feedback     { background: #e91e63; }
+    .category-随想         { background: #9b59b6; }
+    .category-开源项目      { background: #27ae60; }
+    .category-开发交流      { background: #e67e22; }
+
+    /* --- Tags column (original native tags, if any) --- */
+    td.tags-cell { width: 12%; }
+    .discourse-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .discourse-tag.box {
+      display: inline-block;
+      background: #e8e8e8;
+      color: #555;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      text-decoration: none;
+    }
+    .discourse-tag.box:hover { background: #ddd; text-decoration: none; }
+
+    /* Style for Bewly-injected tags */
+    span[data-bewly-topic-tags] {
+      display: inline-flex;
+      gap: 4px;
+      margin-left: 6px;
+    }
+    span[data-bewly-topic-tags] a[data-bewly-topic-tag] {
+      display: inline-block;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    /* --- Stats / views columns --- */
+    td.stats { width: 8%; font-size: 12px; color: #888; text-align: right; }
+    td.views-col { width: 5%; font-size: 12px; color: #aaa; text-align: right; }
+
+    /* ===== Pinned row highlight ===== */
+    tr.topic-list-item.pinned { background: #fffbe6; }
+    tr.topic-list-item.pinned td.main-link .topic-title a::before {
+      content: "\1F4CC  ";
+    }
+
+    /* ===== Diagnostic panel ===== */
+    #bewly-diagnostic-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+      border-top: 2px solid #0f3460;
+      padding: 12px 20px;
+      z-index: 99999;
+    }
+    #bewly-diagnostic-panel h3 {
+      color: #00d2ff;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    #bewly-diagnostic-panel .section { margin-bottom: 10px; }
+    #bewly-diagnostic-panel .ok { color: #2ecc71; }
+    #bewly-diagnostic-panel .warn { color: #f1c40f; }
+    #bewly-diagnostic-panel .fail { color: #e74c3c; }
+    #bewly-diagnostic-panel .dim { color: #777; }
+    #bewly-diagnostic-panel table { border-collapse: collapse; width: 100%; }
+    #bewly-diagnostic-panel th,
+    #bewly-diagnostic-panel td {
+      text-align: left;
+      padding: 2px 10px 2px 0;
+      border-bottom: 1px solid #333;
+    }
+    #bewly-diagnostic-panel th { color: #aaa; font-weight: normal; }
+
+    /* Extra bottom padding so diagnostic panel doesn't cover content */
+    .topic-list-container { margin-bottom: 320px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== Simulated Discourse header ===== -->
+<div class="d-header">
+  <span class="title">Linux.do</span>
+  <span class="badge">Latest</span>
+  <span class="badge">DEMO HARNESS</span>
+</div>
+
+<!-- ===== Topic list ===== -->
+<div class="topic-list-container">
+  <table class="topic-list">
+    <thead>
+      <tr>
+        <th>Topic</th>
+        <th>Category</th>
+        <th>Tags</th>
+        <th>Replies</th>
+        <th>Views</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Row 1: has tags (tag-公告, tag-置顶), pinned, category in both places -->
+      <tr class="topic-list-item category-feedback has-excerpt pinned tag-公告 tag-置顶" data-topic-id="100001">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/welcome-to-linux-do/100001">Welcome to Linux.do — Community Rules & FAQ</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/feedback" class="badge-wrapper"><span class="badge-category">Feedback</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/feedback" class="badge-wrapper"><span class="badge-category category-feedback">Feedback</span></a>
+        </td>
+        <td class="tags-cell">
+          <div class="discourse-tags">
+            <a href="/tag/公告" class="discourse-tag box">公告</a>
+          </div>
+        </td>
+        <td class="stats">42</td>
+        <td class="views-col">1.2k</td>
+      </tr>
+
+      <!-- Row 2: multiple tags, no pinned -->
+      <tr class="topic-list-item category-general tag-linux tag-开源 tag-教程" data-topic-id="100002">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/how-to-customize-your-desktop/100002">How to Customize Your Linux Desktop Environment</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/general" class="badge-wrapper"><span class="badge-category">General</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/general" class="badge-wrapper"><span class="badge-category category-general">General</span></a>
+        </td>
+        <td class="tags-cell">
+          <div class="discourse-tags">
+            <a href="/tag/linux" class="discourse-tag box">linux</a>
+            <a href="/tag/开源" class="discourse-tag box">开源</a>
+          </div>
+        </td>
+        <td class="stats">18</td>
+        <td class="views-col">340</td>
+      </tr>
+
+      <!-- Row 3: single tag, category 随想 -->
+      <tr class="topic-list-item category-随想 tag-随想" data-topic-id="100003">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/weekend-hacking-session/100003">Weekend Hacking Session — What Are You Working On?</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/随想" class="badge-wrapper"><span class="badge-category">随想</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/随想" class="badge-wrapper"><span class="badge-category category-随想">随想</span></a>
+        </td>
+        <td class="tags-cell">
+          <div class="discourse-tags">
+            <a href="/tag/随想" class="discourse-tag box">随想</a>
+          </div>
+        </td>
+        <td class="stats">7</td>
+        <td class="views-col">89</td>
+      </tr>
+
+      <!-- Row 4: NO tags — should NOT get any injected element -->
+      <tr class="topic-list-item category-开源项目 has-excerpt" data-topic-id="100004">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/bewly-linux-do-v013-released/100004">BewlyLinuxDo v0.1.3 Released — New Features</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/开源项目" class="badge-wrapper"><span class="badge-category">开源项目</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/开源项目" class="badge-wrapper"><span class="badge-category category-开源项目">开源项目</span></a>
+        </td>
+        <td class="tags-cell"></td>
+        <td class="stats">25</td>
+        <td class="views-col">580</td>
+      </tr>
+
+      <!-- Row 5: pinned + single tag -->
+      <tr class="topic-list-item category-开发交流 pinned tag-开发" data-topic-id="100005">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/dev-guidelines-pinned/100005">Development Guidelines — Pinned Announcement</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/开发交流" class="badge-wrapper"><span class="badge-category">开发交流</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/开发交流" class="badge-wrapper"><span class="badge-category category-开发交流">开发交流</span></a>
+        </td>
+        <td class="tags-cell">
+          <div class="discourse-tags">
+            <a href="/tag/开发" class="discourse-tag box">开发</a>
+          </div>
+        </td>
+        <td class="stats">5</td>
+        <td class="views-col">210</td>
+      </tr>
+
+      <!-- Row 6: English tags, no pinned -->
+      <tr class="topic-list-item category-general tag-vue tag-typescript" data-topic-id="100006">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/vue3-composition-api-tips/100006">Vue 3 Composition API Tips & Tricks</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/general" class="badge-wrapper"><span class="badge-category">General</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/general" class="badge-wrapper"><span class="badge-category category-general">General</span></a>
+        </td>
+        <td class="tags-cell">
+          <div class="discourse-tags">
+            <a href="/tag/vue" class="discourse-tag box">vue</a>
+            <a href="/tag/typescript" class="discourse-tag box">typescript</a>
+          </div>
+        </td>
+        <td class="stats">12</td>
+        <td class="views-col">450</td>
+      </tr>
+
+      <!-- Row 7: no tags, pinned -->
+      <tr class="topic-list-item category-feedback pinned" data-topic-id="100007">
+        <td class="main-link">
+          <span class="topic-title">
+            <a href="/t/site-maintenance-notice/100007">Scheduled Site Maintenance — June 2026</a>
+          </span>
+          <div class="link-bottom-line">
+            <a href="/c/feedback" class="badge-wrapper"><span class="badge-category">Feedback</span></a>
+          </div>
+        </td>
+        <td class="topic-category-data">
+          <a href="/c/feedback" class="badge-wrapper"><span class="badge-category category-feedback">Feedback</span></a>
+        </td>
+        <td class="tags-cell"></td>
+        <td class="stats">3</td>
+        <td class="views-col">920</td>
+      </tr>
+
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== Diagnostic Panel ===== -->
+<div id="bewly-diagnostic-panel">
+  <h3>BewlyLinuxDo Demo Diagnostic Panel</h3>
+  <div id="diag-status" class="section dim">Waiting for extension to inject ...</div>
+  <div id="diag-summary" class="section"></div>
+  <div id="diag-rows" class="section"></div>
+</div>
+
+<script>
+  // Diagnostic panel: monitors the DOM for extension injection.
+  // Does NOT interact with the extension code itself.
+  (function runDiagnostics() {
+    const statusEl  = document.getElementById('diag-status')
+    const summaryEl = document.getElementById('diag-summary')
+    const rowsEl    = document.getElementById('diag-rows')
+    let pollCount = 0
+
+    function poll() {
+      pollCount++
+      const containers = document.querySelectorAll('[data-bewly-topic-tags]')
+      const allTagEls  = document.querySelectorAll('[data-bewly-topic-tag]')
+      const topicRows  = document.querySelectorAll('tr.topic-list-item')
+      const hiddenBottomLines = document.querySelectorAll('.link-bottom-line')
+
+      // Count rows with tag-* classes
+      const rowsWithTagClass = Array.from(topicRows).filter(row => {
+        return Array.from(row.classList).some(c => /^tag-/.test(c))
+      }).length
+
+      const injectedInHidden = Array.from(containers).filter(c => {
+        // Walk up to see if any ancestor is a hidden .link-bottom-line
+        let node = c.parentElement
+        while (node && node !== document.body) {
+          if (node.classList && node.classList.contains('link-bottom-line')) {
+            const style = getComputedStyle(node)
+            if (style.display === 'none') return true
+          }
+          node = node.parentElement
+        }
+        return false
+      }).length
+
+      const injectedInVisible = containers.length - injectedInHidden
+
+      // Summary
+      if (containers.length === 0 && pollCount < 60) {
+        statusEl.innerHTML = '<span class="dim">Polling ... (attempt ' + pollCount + ')</span>'
+        summaryEl.innerHTML = ''
+        rowsEl.innerHTML = ''
+        setTimeout(poll, 500)
+        return
+      }
+
+      if (containers.length === 0) {
+        statusEl.innerHTML = '<span class="fail">No injected tags found after 30 s. Extension may not be loaded.</span>'
+        summaryEl.innerHTML =
+          '<div>Total topic rows: <b>' + topicRows.length + '</b></div>' +
+          '<div>Rows with tag-* class: <b>' + rowsWithTagClass + '</b></div>' +
+          '<div>Hidden .link-bottom-line: <b>' + hiddenBottomLines.length + '</b></div>'
+        return
+      }
+
+      statusEl.innerHTML = '<span class="ok">Extension detected! ' + containers.length + ' [data-bewly-topic-tags] container(s) found.</span>'
+
+      summaryEl.innerHTML =
+        '<div>Total topic rows: <b>' + topicRows.length + '</b></div>' +
+        '<div>Rows with tag-* class: <b>' + rowsWithTagClass + '</b></div>' +
+        '<div>Injected containers: <b>' + containers.length + '</b></div>' +
+        '<div>Injected individual tags: <b>' + allTagEls.length + '</b></div>' +
+        '<div>Inside hidden .link-bottom-line: <b class="' + (injectedInHidden > 0 ? 'fail' : 'ok') + '">' + injectedInHidden + '</b></div>' +
+        '<div>Inside visible parents: <b class="ok">' + injectedInVisible + '</b></div>'
+
+      // Per-row detail table
+      let tableHTML = '<table><tr><th>Row</th><th>Topic ID</th><th>tag-* classes</th><th>[data-bewly-topic-tags] found?</th><th>Location</th><th>Visible?</th></tr>'
+
+      topicRows.forEach((row, i) => {
+        const topicId = row.getAttribute('data-topic-id') || '?'
+        const tagClasses = Array.from(row.classList).filter(c => /^tag-/.test(c)).map(c => c.replace('tag-', ''))
+        const container = row.querySelector('[data-bewly-topic-tags]')
+        const found = container ? 'YES' : 'NO'
+        let location = '—'
+        let visible = '—'
+
+        if (container) {
+          const parent = container.parentElement
+          const parentTag = parent ? parent.tagName.toLowerCase() : '?'
+          const parentClass = parent && parent.className ? '.' + parent.className.split(/\s+/).join('.') : ''
+          location = parentTag + parentClass
+
+          // Check visibility
+          const style = getComputedStyle(container)
+          const parentStyle = parent ? getComputedStyle(parent) : null
+          if (style.display === 'none') {
+            visible = '<span class="fail">HIDDEN (self)</span>'
+          } else if (parentStyle && parentStyle.display === 'none') {
+            visible = '<span class="fail">HIDDEN (parent)</span>'
+          } else {
+            visible = '<span class="ok">visible</span>'
+          }
+        }
+
+        const tagStr = tagClasses.length > 0 ? tagClasses.join(', ') : '<span class="dim">(none)</span>'
+        const foundClass = container ? 'ok' : (tagClasses.length > 0 ? 'warn' : 'dim')
+
+        tableHTML += '<tr><td>' + (i + 1) + '</td><td>' + topicId + '</td><td>' + tagStr + '</td><td class="' + foundClass + '">' + found + '</td><td>' + location + '</td><td>' + visible + '</td></tr>'
+      })
+
+      tableHTML += '</table>'
+      rowsEl.innerHTML = tableHTML
+    }
+
+    // Start polling after a short delay to let extension load.
+    setTimeout(poll, 300)
+  })()
+</script>
+
+</body>
+</html>
