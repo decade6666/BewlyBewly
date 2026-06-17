@@ -708,10 +708,10 @@ describe('linux.do homepage topic tags', () => {
       </tbody>
     </table>
   `
-  const horizonTopicRowFixture = (bottomLineHidden = true) => `
+  const horizonTopicRowFixture = (bottomLineHidden = true, rowClass = 'category-feedback tag-公告') => `
     <table>
       <tbody>
-        <tr class="topic-list-item category-feedback tag-公告" data-testid="topic">
+        <tr class="topic-list-item ${rowClass}" data-testid="topic">
           <td class="main-link topic-list-data">
             <div class="link-bottom-line"${bottomLineHidden ? ' style="display: none"' : ''}>
               <a class="badge-category__wrapper" href="/c/feedback/2">运营反馈</a>
@@ -857,8 +857,22 @@ describe('linux.do homepage topic tags', () => {
 
     expect(container).toBeTruthy()
     expect(container?.style.display).toBe('inline-flex')
+    expect(container?.style.flexWrap).toBe('nowrap')
     expect(container?.closest('.link-bottom-line')).toBeNull()
     expect(container?.closest('td.topic-category-data')).toBeTruthy()
+  })
+
+  it('keeps multiple Horizon tags on one line inside the visible category cell', () => {
+    document.body.innerHTML = horizonTopicRowFixture(true, 'category-feedback tag-人工智能 tag-软件开发 tag-开源推广 tag-Codex tag-ClaudeCode')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['人工智能', '软件开发', '开源推广', 'Codex', 'ClaudeCode'])
+    expect(container?.style.display).toBe('inline-flex')
+    expect(container?.style.flexWrap).toBe('nowrap')
   })
 
   it('relocates an injected container out of a hidden Horizon bottom line on rerun', () => {
