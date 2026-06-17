@@ -26,7 +26,7 @@ describe('linux.do migration manifest and package metadata', () => {
     const contentScript = manifest.content_scripts?.[0]
 
     expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
-    expect(manifest.version).toBe('0.1.3')
+    expect(manifest.version).toBe('0.1.5')
     expect(manifest.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -51,14 +51,14 @@ describe('linux.do migration manifest and package metadata', () => {
   })
 
   it('formats the semver package version for the WebExtension manifest', () => {
-    expect(formatManifestVersion(pkg.version)).toBe('0.1.3')
+    expect(formatManifestVersion(pkg.version)).toBe('0.1.5')
     expect(formatManifestVersion('0.1.2')).toBe('0.1.2')
   })
 
   it('uses Linux.do for local extension launch metadata', () => {
     expect(pkg.name).toBe('bewly-linux-do')
     expect(pkg.displayName).toBe('BewlyLinuxDo')
-    expect(pkg.version).toBe('0.1.3')
+    expect(pkg.version).toBe('0.1.5')
     expect(pkg.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -71,7 +71,7 @@ describe('linux.do migration manifest and package metadata', () => {
   it('shows the v0.1 Linux.do plugin UI description in About', async () => {
     const aboutSource = await readFile(resolve('src/components/Settings/About/About.vue'), 'utf8')
 
-    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.3')
+    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.5')
     expect(aboutSource).toContain(
       'const displayVersion = version.replace(/^(\\d+\\.\\d+)\\.0$/, \'$1\')',
     )
