@@ -212,6 +212,16 @@ function buildTopicTagContainer(doc: Document, tagNames: string[]): HTMLElement 
   container.className = 'discourse-tags bewly-injected-tags'
   container.setAttribute(INJECTED_TAG_CONTAINER_ATTR, '')
 
+  // 复用站点类名 discourse-tags 会继承 Horizon 主题的 `.discourse-tags { display: contents }`，
+  // 该规则会让本容器 span 自身从布局树中消失，其内部多个 <a> 直接成为父级 flex 项
+  // （td.topic-category-data 在 Horizon 下为 display: flex），导致标签竖排/被挤压/把行撑高。
+  // 这里用内联样式（important）强制容器自身成为一个整体横向布局盒子，覆盖站点类选择器，
+  // 且不影响 default/MOYU（父容器非 flex，inline-flex 表现同样正常）。
+  container.style.setProperty('display', 'inline-flex', 'important')
+  container.style.setProperty('flex-wrap', 'wrap')
+  container.style.setProperty('align-items', 'center')
+  container.style.setProperty('gap', '0.25em')
+
   tagNames.forEach((name) => {
     const link = doc.createElement('a')
 

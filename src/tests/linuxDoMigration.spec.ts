@@ -735,6 +735,7 @@ describe('linux.do homepage topic tags', () => {
     const links = Array.from(container?.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]') ?? [])
 
     expect(badge?.nextElementSibling).toBe(container)
+    expect(container?.style.display).toBe('inline-flex')
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
     expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
     expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
@@ -855,6 +856,7 @@ describe('linux.do homepage topic tags', () => {
     const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
 
     expect(container).toBeTruthy()
+    expect(container?.style.display).toBe('inline-flex')
     expect(container?.closest('.link-bottom-line')).toBeNull()
     expect(container?.closest('td.topic-category-data')).toBeTruthy()
   })
