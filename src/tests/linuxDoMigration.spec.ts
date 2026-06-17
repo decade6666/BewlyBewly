@@ -738,6 +738,9 @@ describe('linux.do homepage topic tags', () => {
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
     expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
     expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
+    // 容器必须显式内联覆盖站点 `.discourse-tags { display: contents }`（Horizon flex 单元格语义破坏），
+    // 使容器自身成为一个整体横向布局盒子；jsdom 不加载站点 CSS，因此断言元素自身的 inline style。
+    expect(container?.style.display).toBe('inline-flex')
   })
 
   it('builds an encoded href while keeping the raw tag name as display text', () => {
@@ -857,6 +860,10 @@ describe('linux.do homepage topic tags', () => {
     expect(container).toBeTruthy()
     expect(container?.closest('.link-bottom-line')).toBeNull()
     expect(container?.closest('td.topic-category-data')).toBeTruthy()
+    // Horizon 的 td.topic-category-data 为 display: flex，容器若继承站点
+    // `.discourse-tags { display: contents }` 会被消解，内部 <a> 直接成为单元格 flex 项而竖排；
+    // 注入容器必须用内联 display 强制自身为一个整体横向布局盒子。
+    expect(container?.style.display).toBe('inline-flex')
   })
 
   it('relocates an injected container out of a hidden Horizon bottom line on rerun', () => {

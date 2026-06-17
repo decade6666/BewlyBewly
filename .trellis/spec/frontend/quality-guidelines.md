@@ -625,6 +625,7 @@ const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
 | Horizon fallback | If the visible category badge lives in `td.topic-category-data`, inject there instead of a hidden `.link-bottom-line`. |
 | Default/MOYU fallback | If no visible category badge is found, fall back to `.link-bottom-line` to preserve existing default-theme behavior. |
 | Idempotence boundary | Treat the render as unchanged only when both the tag list and the exact insertion position are unchanged. |
+| Container display override | The injected `.discourse-tags` container must set an inline `display: inline-flex !important` so it overrides the site's `.discourse-tags { display: contents }`; otherwise the container collapses inside a `display: flex` `td.topic-category-data` (Horizon) and its `<a>` tags become vertical cell flex items. |
 | Disable behavior | `enabled = false` removes all `[data-bewly-topic-tags]` containers under the provided root. |
 
 ### 4. Validation & Error Matrix
@@ -637,6 +638,7 @@ const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
 | The row has no `tag-*` classes | Remove any existing injected container and leave no empty placeholder. |
 | The page is outside homepage scope | Do not inject or remove homepage topic tags. |
 | No visible category badge exists, but `.link-bottom-line` exists | Insert at the end of `.link-bottom-line` as the final fallback. |
+| The container is injected into a `display: flex` `td.topic-category-data` and inherits `.discourse-tags { display: contents }` | Force the container's own `display` with an inline `inline-flex !important` rule so it stays a single horizontal layout box instead of dissolving into the flex cell. |
 
 ### 5. Good/Base/Bad Cases
 
@@ -650,6 +652,7 @@ const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
 - `src/tests/linuxDoMigration.spec.ts`: assert visible `.link-bottom-line` fixtures preserve the default/MOYU insertion position.
 - `src/tests/linuxDoMigration.spec.ts`: assert an existing injected container with unchanged tags but wrong placement is relocated after rerender.
 - `src/tests/linuxDoMigration.spec.ts`: keep homepage-only scope, no-tag, disable, and idempotence assertions green after anchor logic changes.
+- `src/tests/linuxDoMigration.spec.ts`: assert the injected container's inline `style.display` is `inline-flex` in both the default-theme and Horizon `td.topic-category-data` fixtures.
 - Validation commands:
 
 ```bash
