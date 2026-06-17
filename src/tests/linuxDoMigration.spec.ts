@@ -26,7 +26,7 @@ describe('linux.do migration manifest and package metadata', () => {
     const contentScript = manifest.content_scripts?.[0]
 
     expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
-    expect(manifest.version).toBe('0.1.3')
+    expect(manifest.version).toBe('0.1.5')
     expect(manifest.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -51,14 +51,14 @@ describe('linux.do migration manifest and package metadata', () => {
   })
 
   it('formats the semver package version for the WebExtension manifest', () => {
-    expect(formatManifestVersion(pkg.version)).toBe('0.1.3')
+    expect(formatManifestVersion(pkg.version)).toBe('0.1.5')
     expect(formatManifestVersion('0.1.2')).toBe('0.1.2')
   })
 
   it('uses Linux.do for local extension launch metadata', () => {
     expect(pkg.name).toBe('bewly-linux-do')
     expect(pkg.displayName).toBe('BewlyLinuxDo')
-    expect(pkg.version).toBe('0.1.3')
+    expect(pkg.version).toBe('0.1.5')
     expect(pkg.description).toBe(
       'Focused drawer browsing and homepage content filtering for Linux.do.',
     )
@@ -71,7 +71,7 @@ describe('linux.do migration manifest and package metadata', () => {
   it('shows the v0.1 Linux.do plugin UI description in About', async () => {
     const aboutSource = await readFile(resolve('src/components/Settings/About/About.vue'), 'utf8')
 
-    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.3')
+    expect(pkg.version.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.5')
     expect(aboutSource).toContain(
       'const displayVersion = version.replace(/^(\\d+\\.\\d+)\\.0$/, \'$1\')',
     )
@@ -708,10 +708,10 @@ describe('linux.do homepage topic tags', () => {
       </tbody>
     </table>
   `
-  const horizonTopicRowFixture = (bottomLineHidden = true) => `
+  const horizonTopicRowFixture = (bottomLineHidden = true, rowClass = 'category-feedback tag-公告') => `
     <table>
       <tbody>
-        <tr class="topic-list-item category-feedback tag-公告" data-testid="topic">
+        <tr class="topic-list-item ${rowClass}" data-testid="topic">
           <td class="main-link topic-list-data">
             <div class="link-bottom-line"${bottomLineHidden ? ' style="display: none"' : ''}>
               <a class="badge-category__wrapper" href="/c/feedback/2">运营反馈</a>
@@ -735,12 +735,10 @@ describe('linux.do homepage topic tags', () => {
     const links = Array.from(container?.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]') ?? [])
 
     expect(badge?.nextElementSibling).toBe(container)
+    expect(container?.style.display).toBe('inline-flex')
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
     expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
     expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
-    // 容器必须显式内联覆盖站点 `.discourse-tags { display: contents }`（Horizon flex 单元格语义破坏），
-    // 使容器自身成为一个整体横向布局盒子；jsdom 不加载站点 CSS，因此断言元素自身的 inline style。
-    expect(container?.style.display).toBe('inline-flex')
   })
 
   it('builds an encoded href while keeping the raw tag name as display text', () => {
@@ -858,12 +856,23 @@ describe('linux.do homepage topic tags', () => {
     const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
 
     expect(container).toBeTruthy()
+    expect(container?.style.display).toBe('inline-flex')
+    expect(container?.style.flexWrap).toBe('nowrap')
     expect(container?.closest('.link-bottom-line')).toBeNull()
     expect(container?.closest('td.topic-category-data')).toBeTruthy()
-    // Horizon 的 td.topic-category-data 为 display: flex，容器若继承站点
-    // `.discourse-tags { display: contents }` 会被消解，内部 <a> 直接成为单元格 flex 项而竖排；
-    // 注入容器必须用内联 display 强制自身为一个整体横向布局盒子。
+  })
+
+  it('keeps multiple Horizon tags on one line inside the visible category cell', () => {
+    document.body.innerHTML = horizonTopicRowFixture(true, 'category-feedback tag-人工智能 tag-软件开发 tag-开源推广 tag-Codex tag-ClaudeCode')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/', true)
+
+    const container = document.querySelector<HTMLElement>('[data-bewly-topic-tags]')
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['人工智能', '软件开发', '开源推广', 'Codex', 'ClaudeCode'])
     expect(container?.style.display).toBe('inline-flex')
+    expect(container?.style.flexWrap).toBe('nowrap')
   })
 
   it('relocates an injected container out of a hidden Horizon bottom line on rerun', () => {
