@@ -14,6 +14,7 @@ import {
   isLinuxDoTopicListPage,
   normalizeLinuxDoTopicUrl,
   renderLinuxDoHomePageTopicTags,
+  setLinuxDoDrawerHostScrollLock,
 } from '../sites/linuxDo'
 
 const blockedLegacyTargets = /bilibili|hdslb/i
@@ -1070,6 +1071,69 @@ describe('linux.do drawer hidden chrome', () => {
   it('does nothing when the iframe document is unavailable', () => {
     expect(() => applyLinuxDoDrawerChrome(null)).not.toThrow()
     expect(() => applyLinuxDoDrawerChrome(undefined)).not.toThrow()
+  })
+})
+
+describe('linux.do drawer host scroll lock', () => {
+  it('locks the host document scroll while the drawer is open', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    setLinuxDoDrawerHostScrollLock(true, doc)
+
+    expect(doc.documentElement.style.overflow).toBe('hidden')
+  })
+
+  it('restores the previous overflow value when unlocking', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+    doc.documentElement.style.overflow = 'scroll'
+
+    setLinuxDoDrawerHostScrollLock(true, doc)
+    setLinuxDoDrawerHostScrollLock(false, doc)
+
+    expect(doc.documentElement.style.overflow).toBe('scroll')
+  })
+
+  it('restores an empty overflow when nothing was set before locking', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    setLinuxDoDrawerHostScrollLock(true, doc)
+    setLinuxDoDrawerHostScrollLock(false, doc)
+
+    expect(doc.documentElement.style.overflow).toBe('')
+  })
+
+  it('restores a preset padding-right instead of clearing it', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+    doc.documentElement.style.paddingRight = '7px'
+
+    setLinuxDoDrawerHostScrollLock(true, doc)
+    setLinuxDoDrawerHostScrollLock(false, doc)
+
+    expect(doc.documentElement.style.paddingRight).toBe('7px')
+  })
+
+  it('is idempotent so repeated locks keep the original saved value', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+    doc.documentElement.style.overflow = 'auto'
+
+    setLinuxDoDrawerHostScrollLock(true, doc)
+    setLinuxDoDrawerHostScrollLock(true, doc)
+    setLinuxDoDrawerHostScrollLock(false, doc)
+
+    expect(doc.documentElement.style.overflow).toBe('auto')
+  })
+
+  it('does nothing when the host document is unavailable', () => {
+    expect(() => setLinuxDoDrawerHostScrollLock(true, null)).not.toThrow()
+    expect(() => setLinuxDoDrawerHostScrollLock(false, null)).not.toThrow()
+    expect(() => setLinuxDoDrawerHostScrollLock(true, undefined)).not.toThrow()
+  })
+
+  it('wires the host scroll lock to drawer visibility in the content script app', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+
+    expect(appSource).toContain('setLinuxDoDrawerHostScrollLock')
+    expect(appSource).toContain('watch(showIframeDrawer')
   })
 })
 
