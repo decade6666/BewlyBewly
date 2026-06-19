@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Defines Linux.do overlay/content-script component contracts and validation expectations relevant to homepage metadata rendering."}
+{"file":".trellis/tasks/06-19-fix-gossip-category-label-near-latest-tags/prd.md","reason":"Task-specific requirements and acceptance criteria for preventing raw gossip category slug display near tags."}

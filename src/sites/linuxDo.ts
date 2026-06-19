@@ -48,40 +48,42 @@ const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
 const HOME_PAGE_PREVIOUS_DISPLAY_PRIORITY_ATTR = 'data-bewly-home-page-previous-display-priority'
 // Discourse adds a `tag-{name}` class to each topic row; rebuild visible tag links from it.
 const TOPIC_TAG_CLASS_PATTERN = /^tag-(.+)$/
+const TOPIC_CATEGORY_CLASS_PATTERN = /^category-(.+)$/
+const NATIVE_TOPIC_TAG_LINK_SELECTOR = '.discourse-tags a[href], a.discourse-tag[href]'
 const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
 const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
 const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
-// Drawer reading view: hide Linux.do's own left sidebar and the top-right
-// language-switch / search / avatar header icons. The drawer iframe is a
-// same-origin linux.do document, so the host content script injects this style
-// into it (the content script itself never runs inside sub-frames).
+// Drawer reading view: hide Linux.do's own header and left sidebar inside
+// the same-origin drawer iframe. The host content script injects this style
+// into the iframe document because the content script itself never runs inside
+// sub-frames.
 const DRAWER_HIDDEN_CHROME_STYLE_ID = 'bewly-drawer-hidden-chrome'
-// Language/translate/locale matching is scoped to `.d-header` so it cannot hit
-// in-post translator buttons; the rest are stock Discourse class/id selectors.
 const DRAWER_HIDDEN_CHROME_CSS = `
-.sidebar-wrapper {
+html,
+body {
+  background: var(--secondary, #fff) !important;
+}
+
+.sidebar-wrapper,
+.d-header {
   display: none !important;
 }
 
-.d-header .search-dropdown,
-.d-header #search-button,
-.d-header .current-user,
-.d-header #current-user,
-.d-header .header-dropdown-toggle.current-user,
-.d-header [class*="language" i],
-.d-header [class*="translate" i],
-.d-header [class*="locale" i],
-.d-header [title*="language" i],
-.d-header [title*="translate" i],
-.d-header [aria-label*="language" i],
-.d-header [aria-label*="translate" i],
-.d-header [title*="语言"],
-.d-header [aria-label*="语言"] {
-  display: none !important;
+#main-outlet-wrapper {
+  grid-template-columns: 0 minmax(0, 1fr) !important;
+}
+
+#main-outlet {
+  grid-column: 1 / -1 !important;
 }
 `
+
+interface TopicTag {
+  name: string
+  href: string
+}
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
 type HomePageBlockedWordMatcher = (text: string) => boolean
@@ -172,11 +174,11 @@ export function renderLinuxDoHomePageTopicTags(root: ParentNode, url: string, en
 }
 
 function syncTopicItemTags(element: HTMLElement): void {
-  const desiredTags = getTopicTagNames(element)
+  const desiredTags = getTopicTags(element)
   const existingContainer = element.querySelector<HTMLElement>(`[${INJECTED_TAG_CONTAINER_ATTR}]`)
-  const currentTags = existingContainer ? getInjectedTagNames(existingContainer) : []
+  const currentTags = existingContainer ? getInjectedTags(existingContainer) : []
   const anchor = resolveTagInsertionAnchor(element)
-  const tagsUnchanged = areTagListsEqual(desiredTags, currentTags)
+  const tagsUnchanged = areTopicTagListsEqual(desiredTags, currentTags)
   const placementUnchanged = !existingContainer || (anchor !== null && isTagContainerAtAnchor(existingContainer, anchor))
 
   if (tagsUnchanged && placementUnchanged)
@@ -192,19 +194,77 @@ function syncTopicItemTags(element: HTMLElement): void {
   anchor.parent.insertBefore(container, anchor.refNode)
 }
 
-function getTopicTagNames(element: HTMLElement): string[] {
+function getTopicTags(element: HTMLElement): TopicTag[] {
+  const nativeTags = getNativeTopicTags(element)
+  const fallbackTags = getFallbackTopicTags(element)
+
+  if (nativeTags.length === 0)
+    return fallbackTags
+
+  const nativeTagNames = new Set(nativeTags.map(tag => normalizeTagIdentity(tag.name)))
+  const missingFallbackTags = fallbackTags.filter(tag => !nativeTagNames.has(normalizeTagIdentity(tag.name)))
+
+  return [...nativeTags, ...missingFallbackTags]
+}
+
+function getNativeTopicTags(element: HTMLElement): TopicTag[] {
+  return Array.from(element.querySelectorAll<HTMLAnchorElement>(NATIVE_TOPIC_TAG_LINK_SELECTOR))
+    .filter(link => !link.hasAttribute(INJECTED_TAG_MARKER_ATTR) && !link.closest(`[${INJECTED_TAG_CONTAINER_ATTR}]`))
+    .map(toNativeTopicTag)
+    .filter((tag): tag is TopicTag => tag !== null)
+}
+
+function toNativeTopicTag(link: HTMLAnchorElement): TopicTag | null {
+  const name = (link.getAttribute('data-tag-name') ?? link.textContent ?? '').trim()
+
+  if (!name)
+    return null
+
+  return {
+    name,
+    href: link.getAttribute('href') ?? createTopicTagHref(name),
+  }
+}
+
+function getFallbackTopicTags(element: HTMLElement): TopicTag[] {
+  const categorySlugs = new Set(getTopicCategorySlugs(element).map(normalizeTagIdentity))
+
   return Array.from(element.classList)
     .map(token => TOPIC_TAG_CLASS_PATTERN.exec(token)?.[1])
     .filter((name): name is string => Boolean(name))
+    .filter(name => !categorySlugs.has(normalizeTagIdentity(name)))
+    .map(name => ({ name, href: createTopicTagHref(name) }))
 }
 
-function getInjectedTagNames(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(`[${INJECTED_TAG_MARKER_ATTR}]`))
-    .map(link => link.textContent ?? '')
+function getTopicCategorySlugs(element: HTMLElement): string[] {
+  return Array.from(element.classList)
+    .map(token => TOPIC_CATEGORY_CLASS_PATTERN.exec(token)?.[1])
+    .filter((name): name is string => Boolean(name))
 }
 
-function areTagListsEqual(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index])
+function createTopicTagHref(name: string): string {
+  return `/tag/${encodeURIComponent(name)}`
+}
+
+function normalizeTagIdentity(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function getInjectedTags(container: HTMLElement): TopicTag[] {
+  return Array.from(container.querySelectorAll<HTMLAnchorElement>(`[${INJECTED_TAG_MARKER_ATTR}]`))
+    .map(link => ({
+      name: link.textContent ?? '',
+      href: link.getAttribute('href') ?? '',
+    }))
+}
+
+function areTopicTagListsEqual(left: TopicTag[], right: TopicTag[]): boolean {
+  return left.length === right.length
+    && left.every((value, index) => {
+      const rightValue = right[index]
+
+      return value.name === rightValue.name && value.href === rightValue.href
+    })
 }
 
 function isElementVisibleWithin(node: Element, boundary: Element): boolean {
@@ -251,7 +311,7 @@ function resolveTagInsertionAnchor(element: HTMLElement): { parent: Element, ref
   return null
 }
 
-function buildTopicTagContainer(doc: Document, tagNames: string[]): HTMLElement {
+function buildTopicTagContainer(doc: Document, tags: TopicTag[]): HTMLElement {
   const container = doc.createElement('span')
 
   container.className = 'discourse-tags bewly-injected-tags'
@@ -262,18 +322,22 @@ function buildTopicTagContainer(doc: Document, tagNames: string[]): HTMLElement 
   // （td.topic-category-data 在 Horizon 下为 display: flex），导致标签竖排/被挤压/把行撑高。
   // 这里用内联样式（important）强制容器自身成为一个整体横向布局盒子，覆盖站点类选择器，
   // 且不影响 default/MOYU（父容器非 flex，inline-flex 表现同样正常）。
+  // flex-wrap 用 nowrap：Horizon 把 td.topic-category-data 放进一个内容自适应的 grid 轨道，
+  // 若容器允许换行，其 min-content 只等于最宽的单个标签，轨道宽度被压到一个标签的尺寸，
+  // 徽章 + 多个标签便在窄列内逐个竖排换行；nowrap 让容器 min-content 等于全部标签宽度之和，
+  // grid 轨道随之自动撑宽，徽章 + 标签回到同一横排（多余宽度由超宽的活动列吸收，不与右侧列重叠）。
   container.style.setProperty('display', 'inline-flex', 'important')
-  container.style.setProperty('flex-wrap', 'wrap')
+  container.style.setProperty('flex-wrap', 'nowrap')
   container.style.setProperty('align-items', 'center')
   container.style.setProperty('gap', '0.25em')
 
-  tagNames.forEach((name) => {
+  tags.forEach((tag) => {
     const link = doc.createElement('a')
 
     link.className = 'discourse-tag box'
     link.setAttribute(INJECTED_TAG_MARKER_ATTR, '')
-    link.setAttribute('href', `/tag/${encodeURIComponent(name)}`)
-    link.textContent = name
+    link.setAttribute('href', tag.href)
+    link.textContent = tag.name
     container.appendChild(link)
   })
 

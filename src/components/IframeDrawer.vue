@@ -128,7 +128,7 @@ onKeyStroke('Escape', handleEscape, { target: window })
     <Transition name="fade">
       <div
         v-if="show"
-        pos="absolute bottom-0 left-0" w-full h-full bg="black opacity-60"
+        pos="absolute bottom-0 left-0" w-full h-full bg="black"
         @click="handleClose"
       />
     </Transition>
