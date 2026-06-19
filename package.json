@@ -2,7 +2,7 @@
   "name": "bewly-linux-do",
   "displayName": "BewlyLinuxDo",
   "type": "module",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "private": true,
   "packageManager": "pnpm@9.5.0",
   "description": "Focused drawer browsing and homepage content filtering for Linux.do.",
