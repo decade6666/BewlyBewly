@@ -22,6 +22,7 @@ interface LinuxDoDrawerRouteChangeDetail {
 const appMessages = {
   en: {
     addBlockedWord: 'Add',
+    backToTop: 'Back to top',
     blockedWords: 'Homepage blocked words',
     blockedWordsEmpty: 'No blocked words yet.',
     blockedWordsImportInvalid: 'Import failed. Use a JSON string array.',
@@ -37,12 +38,14 @@ const appMessages = {
     hidePinnedTopics: 'Hide homepage pinned topics',
     importBlockedWords: 'Import',
     openSettings: 'Open Linux.do settings',
+    refreshPage: 'Refresh page',
     settings: 'Linux.do settings',
     settingsDesc: 'These options apply to the current Linux.do page.',
     showTopicTags: 'Show homepage topic tags',
   },
   'cmn-CN': {
     addBlockedWord: '添加',
+    backToTop: '返回顶部',
     blockedWords: '首页屏蔽词',
     blockedWordsEmpty: '暂无屏蔽词。',
     blockedWordsImportInvalid: '导入失败，请使用 JSON 字符串数组。',
@@ -58,12 +61,14 @@ const appMessages = {
     hidePinnedTopics: '隐藏首页置顶话题',
     importBlockedWords: '导入',
     openSettings: '打开 Linux.do 设置',
+    refreshPage: '刷新页面',
     settings: 'Linux.do 设置',
     settingsDesc: '这些选项会应用到当前 Linux.do 页面。',
     showTopicTags: '显示首页帖子标签',
   },
   'cmn-TW': {
     addBlockedWord: '新增',
+    backToTop: '返回頂部',
     blockedWords: '首頁屏蔽詞',
     blockedWordsEmpty: '暫無屏蔽詞。',
     blockedWordsImportInvalid: '匯入失敗，請使用 JSON 字串陣列。',
@@ -79,12 +84,14 @@ const appMessages = {
     hidePinnedTopics: '隱藏首頁置頂話題',
     importBlockedWords: '匯入',
     openSettings: '開啟 Linux.do 設定',
+    refreshPage: '重新整理頁面',
     settings: 'Linux.do 設定',
     settingsDesc: '這些選項會套用到目前的 Linux.do 頁面。',
     showTopicTags: '顯示首頁話題標籤',
   },
   jyut: {
     addBlockedWord: '加入',
+    backToTop: '返去頂部',
     blockedWords: '首頁屏蔽詞',
     blockedWordsEmpty: '暫時未有屏蔽詞。',
     blockedWordsImportInvalid: '匯入失敗，請用 JSON 字串陣列。',
@@ -100,6 +107,7 @@ const appMessages = {
     hidePinnedTopics: '收埋首頁置頂話題',
     importBlockedWords: '匯入',
     openSettings: '打開 Linux.do 設定',
+    refreshPage: '重新整理頁面',
     settings: 'Linux.do 設定',
     settingsDesc: '呢啲選項會套用喺而家嘅 Linux.do 頁面。',
     showTopicTags: '顯示首頁話題標籤',
@@ -117,6 +125,20 @@ const blockedWordInput = ref<string>('')
 const blockedWordsStatusMessage = ref<string>('')
 const blockedWordsImportInput = ref<HTMLInputElement | null>(null)
 const showBlockedWordsDialog = ref<boolean>(false)
+const isPageAtTop = ref<boolean>(true)
+
+function updatePageScrollState() {
+  isPageAtTop.value = window.scrollY <= 10
+}
+
+function handleScrollActionClick() {
+  if (isPageAtTop.value) {
+    window.location.reload()
+    return
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 function getAppLocale(language: string): AppLocale {
   const normalizedLanguage = language.toLowerCase()
@@ -348,8 +370,10 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 useEventListener(document, 'click', handleDocumentClick, { capture: true })
 useEventListener(window, 'popstate', handlePopState)
 useEventListener(document, 'keydown', handleGlobalKeydown)
+useEventListener(window, 'scroll', updatePageScrollState, { passive: true })
 
 onMounted(() => {
+  updatePageScrollState()
   window.dispatchEvent(new CustomEvent(BEWLY_MOUNTED))
 })
 
@@ -360,6 +384,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="linux-do-extension-root">
+    <button
+      v-if="!showSettingsPanel"
+      class="linux-do-scroll-action-button"
+      type="button"
+      :aria-label="isPageAtTop ? appLabels.refreshPage : appLabels.backToTop"
+      @click="handleScrollActionClick"
+    >
+      <span
+        :class="isPageAtTop ? 'i-mingcute:refresh-2-line' : 'i-mingcute:arrow-up-line'"
+        aria-hidden="true"
+      />
+    </button>
+
     <button
       class="linux-do-settings-button"
       type="button"
@@ -548,6 +585,42 @@ onBeforeUnmount(() => {
   position: fixed;
   right: 18px;
   bottom: 18px;
+  z-index: 2147483646;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--bew-text-1);
+  background: var(--bew-elevated-solid);
+  border: 1px solid var(--bew-border-color);
+  border-radius: 999px;
+  box-shadow: 0 12px 30px hsl(220deg 40% 2% / 18%);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: white;
+    background: var(--bew-theme-color);
+    transform: translateY(-2px);
+    outline: none;
+  }
+
+  span {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.linux-do-scroll-action-button {
+  position: fixed;
+  right: 18px;
+  bottom: 76px;
   z-index: 2147483646;
   display: flex;
   align-items: center;
