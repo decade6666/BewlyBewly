@@ -28,6 +28,8 @@ const appMessages = {
     blockedWordsImportSuccess: 'Blocked words imported.',
     blockedWordsPlaceholder: 'Keyword or /pattern/',
     blockedWordsRegexHint: 'Plain text uses case-insensitive includes. Use /pattern/ for regex.',
+    blockedWordsSettings: 'Blocked words settings',
+    closeBlockedWords: 'Close blocked words settings',
     closeSettings: 'Close settings',
     deleteBlockedWord: 'Delete blocked word',
     enableBlockedWords: 'Enable homepage blocked words',
@@ -47,6 +49,8 @@ const appMessages = {
     blockedWordsImportSuccess: '已导入屏蔽词。',
     blockedWordsPlaceholder: '关键词或 /pattern/',
     blockedWordsRegexHint: '普通文本使用忽略大小写的包含匹配；使用 /pattern/ 可启用正则。',
+    blockedWordsSettings: '屏蔽词设置',
+    closeBlockedWords: '关闭屏蔽词设置',
     closeSettings: '关闭设置',
     deleteBlockedWord: '删除屏蔽词',
     enableBlockedWords: '启用首页屏蔽词',
@@ -66,6 +70,8 @@ const appMessages = {
     blockedWordsImportSuccess: '已匯入屏蔽詞。',
     blockedWordsPlaceholder: '關鍵詞或 /pattern/',
     blockedWordsRegexHint: '普通文字使用忽略大小寫的包含匹配；使用 /pattern/ 可啟用正則。',
+    blockedWordsSettings: '屏蔽詞設定',
+    closeBlockedWords: '關閉屏蔽詞設定',
     closeSettings: '關閉設定',
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
@@ -85,6 +91,8 @@ const appMessages = {
     blockedWordsImportSuccess: '已匯入屏蔽詞。',
     blockedWordsPlaceholder: '關鍵詞或 /pattern/',
     blockedWordsRegexHint: '普通文字會忽略大小寫做包含匹配；用 /pattern/ 可以啟用正則。',
+    blockedWordsSettings: '屏蔽詞設定',
+    closeBlockedWords: '閂屏蔽詞設定',
     closeSettings: '關閉設定',
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
@@ -108,6 +116,7 @@ const showSettingsPanel = ref<boolean>(false)
 const blockedWordInput = ref<string>('')
 const blockedWordsStatusMessage = ref<string>('')
 const blockedWordsImportInput = ref<HTMLInputElement | null>(null)
+const showBlockedWordsDialog = ref<boolean>(false)
 
 function getAppLocale(language: string): AppLocale {
   const normalizedLanguage = language.toLowerCase()
@@ -331,8 +340,14 @@ function dispatchDrawerRouteChange(detail: LinuxDoDrawerRouteChangeDetail) {
   window.dispatchEvent(new CustomEvent(LINUX_DO_DRAWER_ROUTE_CHANGE, { detail }))
 }
 
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showBlockedWordsDialog.value)
+    showBlockedWordsDialog.value = false
+}
+
 useEventListener(document, 'click', handleDocumentClick, { capture: true })
 useEventListener(window, 'popstate', handlePopState)
+useEventListener(document, 'keydown', handleGlobalKeydown)
 
 onMounted(() => {
   window.dispatchEvent(new CustomEvent(BEWLY_MOUNTED))
@@ -391,80 +406,109 @@ onBeforeUnmount(() => {
         <span>{{ appLabels.enableBlockedWords }}</span>
       </label>
 
-      <div class="linux-do-settings-blocklist" role="group" :aria-label="appLabels.blockedWords">
-        <p class="linux-do-settings-blocklist-title">
-          {{ appLabels.blockedWords }}
-        </p>
-
-        <div class="linux-do-settings-blocklist-input-row">
-          <input
-            v-model="blockedWordInput"
-            class="linux-do-settings-blocklist-input"
-            type="text"
-            :aria-label="appLabels.blockedWords"
-            :placeholder="appLabels.blockedWordsPlaceholder"
-            @keydown.enter.prevent="addBlockedWord"
-          >
-          <button
-            class="linux-do-settings-secondary-button"
-            type="button"
-            @click="addBlockedWord"
-          >
-            {{ appLabels.addBlockedWord }}
-          </button>
-        </div>
-
-        <p class="linux-do-settings-hint">
-          {{ appLabels.blockedWordsRegexHint }}
-        </p>
-
-        <div class="linux-do-settings-blocklist-actions">
-          <input
-            ref="blockedWordsImportInput"
-            type="file"
-            accept=".json,application/json"
-            hidden
-            @change="handleBlockedWordsImport"
-          >
-          <button
-            class="linux-do-settings-secondary-button"
-            type="button"
-            @click="handleBlockedWordsImportClick"
-          >
-            {{ appLabels.importBlockedWords }}
-          </button>
-          <button
-            class="linux-do-settings-secondary-button"
-            type="button"
-            :disabled="settings.homePageBlockedWords.length === 0"
-            @click="handleBlockedWordsExport"
-          >
-            {{ appLabels.exportBlockedWords }}
-          </button>
-        </div>
-
-        <ul v-if="settings.homePageBlockedWords.length > 0" class="linux-do-settings-blocked-words-list">
-          <li v-for="(word, index) in settings.homePageBlockedWords" :key="`${word}-${index}`">
-            <span>{{ word }}</span>
-            <button
-              class="linux-do-settings-icon-button"
-              type="button"
-              :aria-label="`${appLabels.deleteBlockedWord}: ${word}`"
-              @click="deleteBlockedWord(index)"
-            >
-              <span i-mingcute:close-line aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-        <p v-else class="linux-do-settings-empty">
-          {{ appLabels.blockedWordsEmpty }}
-        </p>
-
-        <p v-if="blockedWordsStatusMessage" class="linux-do-settings-status" role="status" aria-live="polite">
-          {{ blockedWordsStatusMessage }}
-        </p>
-      </div>
+      <button
+        class="linux-do-settings-secondary-button linux-do-settings-blocked-words-trigger"
+        type="button"
+        @click="showBlockedWordsDialog = true"
+      >
+        {{ appLabels.blockedWordsSettings }}
+      </button>
     </section>
+
+    <div
+      v-if="showBlockedWordsDialog"
+      class="linux-do-blocked-words-overlay"
+      @click.self="showBlockedWordsDialog = false"
+    >
+      <div
+        class="linux-do-blocked-words-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="appLabels.blockedWords"
+      >
+        <header class="linux-do-blocked-words-modal-header">
+          <h2>{{ appLabels.blockedWords }}</h2>
+          <button
+            class="linux-do-settings-panel-close"
+            type="button"
+            :aria-label="appLabels.closeBlockedWords"
+            @click="showBlockedWordsDialog = false"
+          >
+            <span i-mingcute:close-line aria-hidden="true" />
+          </button>
+        </header>
+
+        <div class="linux-do-blocked-words-modal-body" role="group" :aria-label="appLabels.blockedWords">
+          <div class="linux-do-settings-blocklist-input-row">
+            <input
+              v-model="blockedWordInput"
+              class="linux-do-settings-blocklist-input"
+              type="text"
+              :aria-label="appLabels.blockedWords"
+              :placeholder="appLabels.blockedWordsPlaceholder"
+              @keydown.enter.prevent="addBlockedWord"
+            >
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              @click="addBlockedWord"
+            >
+              {{ appLabels.addBlockedWord }}
+            </button>
+          </div>
+
+          <p class="linux-do-settings-hint">
+            {{ appLabels.blockedWordsRegexHint }}
+          </p>
+
+          <div class="linux-do-settings-blocklist-actions">
+            <input
+              ref="blockedWordsImportInput"
+              type="file"
+              accept=".json,application/json"
+              hidden
+              @change="handleBlockedWordsImport"
+            >
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              @click="handleBlockedWordsImportClick"
+            >
+              {{ appLabels.importBlockedWords }}
+            </button>
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              :disabled="settings.homePageBlockedWords.length === 0"
+              @click="handleBlockedWordsExport"
+            >
+              {{ appLabels.exportBlockedWords }}
+            </button>
+          </div>
+
+          <ul v-if="settings.homePageBlockedWords.length > 0" class="linux-do-settings-blocked-words-list">
+            <li v-for="(word, index) in settings.homePageBlockedWords" :key="`${word}-${index}`">
+              <span>{{ word }}</span>
+              <button
+                class="linux-do-settings-icon-button"
+                type="button"
+                :aria-label="`${appLabels.deleteBlockedWord}: ${word}`"
+                @click="deleteBlockedWord(index)"
+              >
+                <span i-mingcute:close-line aria-hidden="true" />
+              </button>
+            </li>
+          </ul>
+          <p v-else class="linux-do-settings-empty">
+            {{ appLabels.blockedWordsEmpty }}
+          </p>
+
+          <p v-if="blockedWordsStatusMessage" class="linux-do-settings-status" role="status" aria-live="polite">
+            {{ blockedWordsStatusMessage }}
+          </p>
+        </div>
+      </div>
+    </div>
 
     <div v-if="showIframeDrawer" id="bewly-wrapper" class="linux-do-drawer-root">
       <div class="linux-do-drawer">
@@ -552,6 +596,54 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
+.linux-do-blocked-words-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgb(0 0 0 / 45%);
+  pointer-events: auto;
+}
+
+.linux-do-blocked-words-modal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(92vw, 640px);
+  max-height: 80vh;
+  padding: 20px;
+  overflow: auto;
+  color: var(--bew-text-1);
+  background: var(--bew-elevated-solid);
+  border: 1px solid var(--bew-border-color);
+  border-radius: var(--bew-radius);
+  box-shadow: 0 24px 60px hsl(220deg 40% 2% / 28%);
+}
+
+.linux-do-blocked-words-modal-header {
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+}
+
+.linux-do-blocked-words-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .linux-do-settings-panel-header {
   display: flex;
   gap: 12px;
@@ -616,15 +708,9 @@ onBeforeUnmount(() => {
   }
 }
 
-.linux-do-settings-blocklist {
-  padding-top: 12px;
-  border-top: 1px solid var(--bew-border-color);
-}
-
-.linux-do-settings-blocklist-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
+.linux-do-settings-blocked-words-trigger {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .linux-do-settings-blocklist-input-row {
