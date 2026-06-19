@@ -7,6 +7,9 @@
 *.local
 *.log
 *.pem
+# TLS cert/key material (e.g. local dev self-signed certs) must never be committed
+*.key
+*.crt
 *.xpi
 *.zip
 dist

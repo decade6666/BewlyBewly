@@ -2,6 +2,7 @@
 import { onKeyStroke } from '@vueuse/core'
 
 import Button from '~/components/Button.vue'
+import { applyLinuxDoDrawerChrome } from '~/sites/linuxDo'
 import { openLinkToNewTab } from '~/utils/main'
 
 const props = defineProps<{
@@ -95,6 +96,7 @@ function handleIframeKeydown(event: KeyboardEvent) {
 function handleIframeLoad() {
   showIframe.value = true
   iframeRef.value?.contentWindow?.addEventListener('keydown', handleIframeKeydown)
+  applyLinuxDoDrawerChrome(iframeRef.value?.contentDocument)
 }
 
 async function releaseIframeResources() {
@@ -126,7 +128,7 @@ onKeyStroke('Escape', handleEscape, { target: window })
     <Transition name="fade">
       <div
         v-if="show"
-        pos="absolute bottom-0 left-0" w-full h-full bg="black opacity-60"
+        pos="absolute bottom-0 left-0" w-full h-full bg="black"
         @click="handleClose"
       />
     </Transition>

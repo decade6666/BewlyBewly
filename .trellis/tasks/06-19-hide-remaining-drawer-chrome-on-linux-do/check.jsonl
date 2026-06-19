@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Validation requirements for drawer behavior, iframe sandbox, and hidden chrome regression coverage."}
+{"file":".trellis/tasks/06-19-hide-remaining-drawer-chrome-on-linux-do/prd.md","reason":"Acceptance criteria to verify after implementation."}

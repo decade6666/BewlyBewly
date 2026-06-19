@@ -7,6 +7,7 @@ import pkg from '../../package.json'
 import { cleanLegacySettingsStorageValue, removeLegacySettingsFields } from '../logic/settingsMigration'
 import { formatManifestVersion, getManifest } from '../manifest'
 import {
+  applyLinuxDoDrawerChrome,
   findLinuxDoTopicLink,
   hideLinuxDoHomePageElements,
   isLinuxDoHomePage,
@@ -736,6 +737,7 @@ describe('linux.do homepage topic tags', () => {
 
     expect(badge?.nextElementSibling).toBe(container)
     expect(container?.style.display).toBe('inline-flex')
+    expect(container?.style.flexWrap).toBe('nowrap')
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/free-stuff'])
     expect(links.map(link => link.textContent)).toEqual(['deals', 'free-stuff'])
     expect(links.every(link => link.classList.contains('discourse-tag'))).toBe(true)
@@ -750,6 +752,107 @@ describe('linux.do homepage topic tags', () => {
 
     expect(link?.textContent).toBe('公告')
     expect(decodeURIComponent(link?.getAttribute('href') ?? '')).toBe('/tag/公告')
+  })
+
+  it('uses native Discourse tag metadata instead of category-like row class tokens', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item category-gossip tag-gossip tag-快问快答" data-testid="topic">
+            <td class="main-link topic-list-data">
+              <div class="link-bottom-line" style="display: none">
+                <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+                <ul class="discourse-tags">
+                  <li>
+                    <a class="discourse-tag box" data-tag-name="快问快答" href="/tag/1436-tag/1436">快问快答</a>
+                  </li>
+                </ul>
+              </div>
+            </td>
+            <td class="topic-category-data">
+              <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['快问快答'])
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/1436-tag/1436'])
+  })
+
+  it('falls back to row tag classes when native tag anchors have no labels', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item category-gossip tag-gossip tag-纯水" data-testid="topic">
+            <td class="main-link topic-list-data">
+              <div class="link-bottom-line" style="display: none">
+                <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+                <ul class="discourse-tags">
+                  <li><a class="discourse-tag box" href="/tag/empty"></a></li>
+                </ul>
+              </div>
+            </td>
+            <td class="topic-category-data">
+              <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['纯水'])
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/%E7%BA%AF%E6%B0%B4'])
+  })
+
+  it('fills native tag metadata gaps with fallback row tag classes', () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr class="topic-list-item category-gossip tag-gossip tag-快问快答 tag-纯水" data-testid="topic">
+            <td class="main-link topic-list-data">
+              <div class="link-bottom-line" style="display: none">
+                <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+                <ul class="discourse-tags">
+                  <li><a class="discourse-tag box" data-tag-name="快问快答" href="/tag/1436-tag/1436">快问快答</a></li>
+                  <li><a class="discourse-tag box" href="/tag/empty"></a></li>
+                </ul>
+              </div>
+            </td>
+            <td class="topic-category-data">
+              <a class="badge-category__wrapper" href="/c/gossip/11">搞七捻三</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['快问快答', '纯水'])
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/1436-tag/1436', '/tag/%E7%BA%AF%E6%B0%B4'])
+  })
+
+  it('does not treat a category slug class as a fallback tag label', () => {
+    document.body.innerHTML = topicRowFixture('category-gossip tag-gossip tag-纯水')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(links.map(link => link.textContent)).toEqual(['纯水'])
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/%E7%BA%AF%E6%B0%B4'])
   })
 
   it('does not inject anything for rows without tag-* classes', () => {
@@ -806,6 +909,27 @@ describe('linux.do homepage topic tags', () => {
 
     expect(containers).toHaveLength(1)
     expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/deals', '/tag/news'])
+  })
+
+  it('rebuilds fallback tags when native tag metadata becomes available', () => {
+    document.body.innerHTML = topicRowFixture('category-gossip tag-快问快答')
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const bottomLine = document.querySelector<HTMLElement>('.link-bottom-line')
+    bottomLine?.insertAdjacentHTML(
+      'beforeend',
+      '<ul class="discourse-tags"><li><a class="discourse-tag box" data-tag-name="快问快答" href="/tag/1436-tag/1436">快问快答</a></li></ul>',
+    )
+
+    renderLinuxDoHomePageTopicTags(document, 'https://linux.do/latest', true)
+
+    const containers = document.querySelectorAll('[data-bewly-topic-tags]')
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-bewly-topic-tag]'))
+
+    expect(containers).toHaveLength(1)
+    expect(links.map(link => link.textContent)).toEqual(['快问快答'])
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/tag/1436-tag/1436'])
   })
 
   it('removes injected tags when the feature is disabled', () => {
@@ -902,6 +1026,50 @@ describe('linux.do homepage topic tags', () => {
 
     expect(container).toBeTruthy()
     expect(container?.closest('.link-bottom-line')).toBeTruthy()
+  })
+})
+
+describe('linux.do drawer hidden chrome', () => {
+  it('injects a style that hides the sidebar and the full site header', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    applyLinuxDoDrawerChrome(doc)
+
+    const style = doc.getElementById('bewly-drawer-hidden-chrome')
+
+    expect(style?.tagName).toBe('STYLE')
+    expect(style?.parentElement).toBe(doc.head)
+    expect(style?.textContent).toContain('html,')
+    expect(style?.textContent).toContain('body {')
+    expect(style?.textContent).toContain('background: var(--secondary, #fff) !important')
+    expect(style?.textContent).toContain('.sidebar-wrapper,')
+    expect(style?.textContent).toContain('.d-header {')
+    expect(style?.textContent).toContain('#main-outlet-wrapper')
+    expect(style?.textContent).toContain('grid-template-columns: 0 minmax(0, 1fr) !important')
+    expect(style?.textContent).toContain('#main-outlet')
+    expect(style?.textContent).toContain('grid-column: 1 / -1 !important')
+    expect(style?.textContent).toContain('display: none !important')
+  })
+
+  it('keeps the drawer backdrop opaque so host page chrome cannot show through', async () => {
+    const drawerSource = await readFile(resolve('src/components/IframeDrawer.vue'), 'utf8')
+
+    expect(drawerSource).toContain('bg="black"')
+    expect(drawerSource).not.toContain('opacity-60')
+  })
+
+  it('is idempotent across repeated calls on the same document', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    applyLinuxDoDrawerChrome(doc)
+    applyLinuxDoDrawerChrome(doc)
+
+    expect(doc.querySelectorAll('#bewly-drawer-hidden-chrome')).toHaveLength(1)
+  })
+
+  it('does nothing when the iframe document is unavailable', () => {
+    expect(() => applyLinuxDoDrawerChrome(null)).not.toThrow()
+    expect(() => applyLinuxDoDrawerChrome(undefined)).not.toThrow()
   })
 })
 
@@ -1017,5 +1185,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(drawerSource).toContain('handleClose')
     expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"')
     expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
+    expect(drawerSource).toContain('import { applyLinuxDoDrawerChrome } from \'~/sites/linuxDo\'')
+    expect(drawerSource).toContain('applyLinuxDoDrawerChrome(iframeRef.value?.contentDocument)')
   })
 })

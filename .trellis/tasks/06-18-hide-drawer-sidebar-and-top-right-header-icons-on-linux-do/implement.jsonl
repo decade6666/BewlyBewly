@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "抽屉组件契约：IframeDrawer/App.vue 边界、iframe sandbox 与同源访问、控件归属，注入逻辑须遵守该契约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "DOM 注入幂等、错误处理与禁止模式红线（同源 contentDocument 守卫、单一 style 注入）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "新增注入函数签名 (Document)->void 的类型安全要求"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用 src/sites/linuxDo.ts 既有 DOM-helper 组织方式，避免在组件内堆 DOM 逻辑"}

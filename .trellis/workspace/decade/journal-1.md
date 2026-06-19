@@ -358,3 +358,10 @@ Prepared and published GitHub Release v0.1.2 by bumping the package version, val
 ### Next Steps
 
 - None - task complete
+## 2026-06-18 — Drawer: hide linux.do sidebar + top-right header icons
+
+- Task: 06-18-hide-drawer-sidebar-and-top-right-header-icons-on-linux-do (in_progress)
+- Decision: content script has no `all_frames`, so it never runs inside the drawer sub-frame. The drawer iframe `src` is same-origin linux.do, so the host injects a `<style id="bewly-drawer-hidden-chrome">` into `iframeRef.contentDocument` on load instead of relying on iframe-side script.
+- Scope (confirmed with user): always-on (no setting). Generic Discourse selectors; language-switch matched loosely under `.d-header` because Cloudflare blocked live DOM inspection.
+- Files: `src/sites/linuxDo.ts` (new `applyLinuxDoDrawerChrome`), `src/components/IframeDrawer.vue` (call in `handleIframeLoad`), spec contract + 3 unit/regression tests.
+- Verify: vitest 78 pass, tsc clean, eslint clean. Live linux.do DOM NOT verified (Cloudflare) — selectors need browser confirmation.
