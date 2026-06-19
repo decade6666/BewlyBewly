@@ -262,6 +262,95 @@ sha256sum extension.zip
 
 ---
 
+## Scenario: Real-Browser Verification With the Extension Loaded
+
+### 1. Scope / Trigger
+
+- Trigger: verifying Linux.do content-script UI or behavior (buttons, overlays, dialogs, scroll/keyboard handlers) in an actual browser, not just unit tests.
+- Applies to changes in `src/contentScripts/**` and any feature whose only real proof is rendered behavior on `https://linux.do/`.
+- Browser verification MUST run against a browser that has the freshly built `extension/` actually loaded; a browser without the extension cannot prove the content script works.
+
+### 2. Signatures
+
+Build first, then launch a dedicated, debuggable, headed Chrome that can accept a CDP extension load:
+
+```bash
+pnpm build
+chrome.exe --remote-debugging-port=9222 --user-data-dir="<dedicated-profile-dir>" --enable-unsafe-extension-debugging about:blank
+```
+
+Load the unpacked build over the browser-level CDP endpoint, then drive a page target:
+
+```text
+GET http://127.0.0.1:9222/json/version   -> webSocketDebuggerUrl (browser endpoint)
+Extensions.loadUnpacked { path: "<absolute path to>/extension" }   -> { id }
+Page.navigate { url: "https://linux.do/" }
+Runtime.evaluate / Page.captureScreenshot / Input.dispatchMouseEvent / Input.dispatchKeyEvent
+Browser.close   (stop only this instance)
+```
+
+The content-script UI mounts inside a Shadow DOM, so assertions must pierce it:
+
+```text
+document.getElementById('bewly').shadowRoot.querySelector('.linux-do-extension-root')
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Extension presence | Verification is only valid when the built `extension/` is loaded in the test browser; an empty/extension-less browser proves nothing. |
+| Default MCP browser | The default `chrome-devtools` MCP browser launches with `--disable-extensions` (content script never injects) and `--enable-automation` (Linux.do Cloudflare Turnstile blocks the page); do not use it to verify this extension. |
+| Extension load method | `--load-extension=<dir>` is silently ignored on Chrome 137+ (verified on 149). Load via CDP `Extensions.loadUnpacked` after launching with `--enable-unsafe-extension-debugging`. |
+| Debug profile | Chrome >= 136 ignores `--remote-debugging-port` on the default profile; a dedicated `--user-data-dir` is required. The same dedicated profile persists Cloudflare `cf_clearance`, so pass the Turnstile once and later reloads/navigations skip it. |
+| Shadow DOM boundary | The app mounts under `#bewly` shadow root; page-world `document.querySelector('.linux-do-*')` returns `null`. Pierce `document.getElementById('bewly').shadowRoot`. |
+| Rebuild propagation | After each `pnpm build`, reload the extension (re-run `Extensions.loadUnpacked` or reload it in `chrome://extensions`) and reload the page so the new code is used. |
+| Instance teardown | Stop the test browser with CDP `Browser.close`; never `taskkill /IM chrome.exe`, which also kills the developer's main Chrome. |
+| Static gate still required | Real-browser verification supplements, but does not replace, `pnpm lint`, `pnpm typecheck`, and relevant `pnpm test`. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|-----------|-------------------|
+| `document.querySelector('.linux-do-...')` returns `null` after load | Pierce the `#bewly` shadow root before concluding the UI is missing. |
+| Linux.do stays on "请稍候…" with an empty body | Automation/Cloudflare challenge; use a headed, non-automation Chrome and pass the Turnstile checkbox once in the dedicated profile. |
+| Extension is absent from `chrome://extensions` even with `--load-extension` | Expected on Chrome 137+; load it through CDP `Extensions.loadUnpacked`. |
+| `Extensions.loadUnpacked` is rejected/unavailable | Relaunch Chrome with `--enable-unsafe-extension-debugging`. |
+| `http://127.0.0.1:9222/json/version` does not respond | Relaunch with an explicit dedicated `--user-data-dir`; the default profile ignores the debugging port. |
+| Code was rebuilt but the page still shows old behavior | Reload the extension and the page; the running instance keeps the previously loaded build until reloaded. |
+| Need to stop the test browser | Send CDP `Browser.close`; do not kill all Chrome processes. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `pnpm build`, load the build via `Extensions.loadUnpacked` into a headed dedicated-profile Chrome, navigate to `https://linux.do/`, and assert behavior by piercing the `#bewly` shadow root; stop with `Browser.close`.
+- Base: reuse the same dedicated profile across runs so `cf_clearance` persists and the Turnstile is solved only once.
+- Bad: "verifying" in the default MCP browser (no extension), trusting `--load-extension` on Chrome 137+, or querying `.linux-do-*` from the page world and reporting the feature as missing.
+
+### 6. Tests Required
+
+- Injection assertion: on `https://linux.do/`, assert `document.getElementById('bewly').shadowRoot.querySelector('.linux-do-extension-root')` is non-null.
+- Behavior assertions: pierce the shadow root to assert state-dependent attributes (for example `aria-label` and icon class at top versus scrolled) and the effect of `Input` clicks/keys.
+- Rebuild discipline: assert the browser uses the latest build by reloading the extension after `pnpm build` before re-checking.
+- Static gate: `pnpm lint`, `pnpm typecheck`, and relevant `pnpm test` still pass for the source change.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```text
+document.querySelector('.linux-do-scroll-action-button')   // null: app is inside a shadow root
+```
+
+#### Correct
+
+```text
+document.getElementById('bewly').shadowRoot.querySelector('.linux-do-scroll-action-button')
+```
+
+Assertions must pierce the `#bewly` shadow root; page-world selectors miss the content-script UI entirely.
+
+---
+
 ## Scenario: Linux.do Content-Script Overlay and AutoImport DTS Boundaries
 
 ### 1. Scope / Trigger
@@ -712,6 +801,7 @@ This resolves the first visible category badge and keeps rerenders placement-awa
 
 - Source or behavior change: run `pnpm lint`, `pnpm typecheck`, and relevant `pnpm test`.
 - Metadata-only change: run `pnpm lint` and inspect `git status --short` / `git diff --name-only` for scope.
+- Content-script UI/behavior change: verify in a real browser that has the freshly built `extension/` loaded (see "Scenario: Real-Browser Verification With the Extension Loaded"); do not rely on the extension-less default MCP browser.
 - If a user already completed manual or automated tests outside the agent session, record that fact explicitly instead of rerunning or overstating coverage.
 
 ---
@@ -723,3 +813,4 @@ This resolves the first visible category badge and keeps rerenders placement-awa
 - [ ] Markdown code fences match their content format, especially `jsonl` for JSON Lines.
 - [ ] Trellis/Claude metadata changes are intentional and lint-clean.
 - [ ] Source changes have relevant typecheck and test evidence.
+- [ ] Content-script UI/behavior changes were verified in a browser with the built extension loaded, asserting through the `#bewly` shadow root.
