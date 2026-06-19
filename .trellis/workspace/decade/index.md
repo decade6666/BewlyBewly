@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-06-19
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~400 | Active |
+| `journal-1.md` | ~432 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-06-19 | Scroll-top & refresh button above Linux.do settings | `381eb52c` | `feat/scroll-top-refresh-button` |
 | 12 | 2026-06-19 | Blocked words popup dialog on linux.do | `756ab8df` | `feat/blocked-words-popup-dialog` |
 | 11 | 2026-06-17 | 修复 Horizon 主题下注入 topic tag 的布局错乱 | `f963aec6` | `main` |
 | 10 | 2026-06-10 | Release v0.1.2 to GitHub | `4f7f3990` | `main` |

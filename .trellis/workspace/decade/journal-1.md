@@ -397,3 +397,35 @@ Refactored the inline homepage blocked-words section in the in-page Linux.do set
 ### Next Steps
 
 - None - task complete
+
+## Session 13: Scroll-top & refresh button above Linux.do settings
+
+**Date**: 2026-06-19
+**Task**: Scroll-top & refresh button above Linux.do settings
+**Branch**: `feat/scroll-top-refresh-button`
+
+### Summary
+
+Added a floating action button above the Linux.do settings button in App.vue that scrolls to top and refreshes the page. Includes scroll-position state, click handlers, scoped CSS, and i18n for all 4 locales. Passed typecheck and ESLint.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `381eb52c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
