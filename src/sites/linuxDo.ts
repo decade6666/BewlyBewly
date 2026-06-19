@@ -104,6 +104,68 @@ export function applyLinuxDoDrawerChrome(doc: Document | null | undefined): void
   mountPoint.appendChild(style)
 }
 
+const DRAWER_HOST_SCROLL_LOCK_ATTR = 'data-bewly-drawer-scroll-lock'
+
+interface DrawerHostScrollLockState {
+  overflow: string
+  paddingRight: string
+}
+
+/**
+ * Lock or unlock the host page scroll while the iframe drawer is open.
+ *
+ * The drawer overlay covers the viewport, but the host page's native scrollbar
+ * is painted on top of every DOM layer and overlaps the drawer iframe's own
+ * scrollbar at the right edge, so users grab the wrong one. Locking the host
+ * scroll removes that external scrollbar and leaves only the drawer's.
+ *
+ * Restores the exact previous inline `overflow` / `padding-right`, is idempotent
+ * (repeated locks keep the first saved state), and is a no-op without a document.
+ */
+export function setLinuxDoDrawerHostScrollLock(locked: boolean, doc: Document | null | undefined): void {
+  const root = doc?.documentElement
+
+  if (!doc || !root)
+    return
+
+  if (locked) {
+    if (root.hasAttribute(DRAWER_HOST_SCROLL_LOCK_ATTR))
+      return
+
+    const previousState: DrawerHostScrollLockState = {
+      overflow: root.style.overflow,
+      paddingRight: root.style.paddingRight,
+    }
+    const view = doc.defaultView
+    const scrollbarWidth = view ? view.innerWidth - root.clientWidth : 0
+
+    root.setAttribute(DRAWER_HOST_SCROLL_LOCK_ATTR, JSON.stringify(previousState))
+    root.style.overflow = 'hidden'
+
+    if (scrollbarWidth > 0)
+      root.style.paddingRight = `${scrollbarWidth}px`
+
+    return
+  }
+
+  const savedState = root.getAttribute(DRAWER_HOST_SCROLL_LOCK_ATTR)
+
+  if (savedState === null)
+    return
+
+  try {
+    const { overflow, paddingRight } = JSON.parse(savedState) as DrawerHostScrollLockState
+    root.style.overflow = overflow
+    root.style.paddingRight = paddingRight
+  }
+  catch {
+    root.style.overflow = ''
+    root.style.paddingRight = ''
+  }
+
+  root.removeAttribute(DRAWER_HOST_SCROLL_LOCK_ATTR)
+}
+
 export function isLinuxDoTopicListPage(url: string): boolean {
   const parsedUrl = parseLinuxDoUrl(url)
 

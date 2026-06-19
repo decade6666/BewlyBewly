@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { settings } from '~/logic'
-import { findLinuxDoTopicLink, isLinuxDoTopicListPage } from '~/sites/linuxDo'
+import { findLinuxDoTopicLink, isLinuxDoTopicListPage, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
 
@@ -334,11 +334,14 @@ function dispatchDrawerRouteChange(detail: LinuxDoDrawerRouteChangeDetail) {
 useEventListener(document, 'click', handleDocumentClick, { capture: true })
 useEventListener(window, 'popstate', handlePopState)
 
+watch(showIframeDrawer, open => setLinuxDoDrawerHostScrollLock(open, document))
+
 onMounted(() => {
   window.dispatchEvent(new CustomEvent(BEWLY_MOUNTED))
 })
 
 onBeforeUnmount(() => {
+  setLinuxDoDrawerHostScrollLock(false, document)
   dispatchDrawerRouteChange({ isOpen: false })
 })
 </script>
