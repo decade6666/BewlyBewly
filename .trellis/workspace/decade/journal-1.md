@@ -365,3 +365,67 @@ Prepared and published GitHub Release v0.1.2 by bumping the package version, val
 - Scope (confirmed with user): always-on (no setting). Generic Discourse selectors; language-switch matched loosely under `.d-header` because Cloudflare blocked live DOM inspection.
 - Files: `src/sites/linuxDo.ts` (new `applyLinuxDoDrawerChrome`), `src/components/IframeDrawer.vue` (call in `handleIframeLoad`), spec contract + 3 unit/regression tests.
 - Verify: vitest 78 pass, tsc clean, eslint clean. Live linux.do DOM NOT verified (Cloudflare) — selectors need browser confirmation.
+
+## Session 12: Blocked words popup dialog on linux.do
+
+**Date**: 2026-06-19
+**Task**: Blocked words popup dialog on linux.do
+**Branch**: `feat/blocked-words-popup-dialog`
+
+### Summary
+
+Refactored the inline homepage blocked-words section in the in-page Linux.do settings panel (src/contentScripts/views/App.vue) into an enable toggle plus a 'Blocked words settings' button that opens a large native modal dialog (overlay/Esc/aria), holding keyword input/add, regex hint, JSON import/export, list, and status. Added blockedWordsSettings/closeBlockedWords i18n to en/cmn-CN/cmn-TW/jyut. Persistence unchanged (storage.local + JSON import/export); backend filtering and contentScripts wiring untouched. Verified: pnpm typecheck pass, eslint clean on App.vue. Not run: live browser/DOM check. Branch feat/blocked-words-popup-dialog, PR #3 -> main.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `756ab8df` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+## Session 13: Scroll-top & refresh button above Linux.do settings
+
+**Date**: 2026-06-19
+**Task**: Scroll-top & refresh button above Linux.do settings
+**Branch**: `feat/scroll-top-refresh-button`
+
+### Summary
+
+Added a floating action button above the Linux.do settings button in App.vue that scrolls to top and refreshes the page. Includes scroll-position state, click handlers, scoped CSS, and i18n for all 4 locales. Passed typecheck and ESLint.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `381eb52c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
