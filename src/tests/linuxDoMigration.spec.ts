@@ -7,6 +7,7 @@ import pkg from '../../package.json'
 import { cleanLegacySettingsStorageValue, removeLegacySettingsFields } from '../logic/settingsMigration'
 import { formatManifestVersion, getManifest } from '../manifest'
 import {
+  applyLinuxDoDrawerChrome,
   findLinuxDoTopicLink,
   hideLinuxDoHomePageElements,
   isLinuxDoHomePage,
@@ -891,6 +892,38 @@ describe('linux.do homepage topic tags', () => {
   })
 })
 
+describe('linux.do drawer hidden chrome', () => {
+  it('injects a style that hides the sidebar and selected header icons', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    applyLinuxDoDrawerChrome(doc)
+
+    const style = doc.getElementById('bewly-drawer-hidden-chrome')
+
+    expect(style?.tagName).toBe('STYLE')
+    expect(style?.parentElement).toBe(doc.head)
+    expect(style?.textContent).toContain('.sidebar-wrapper')
+    expect(style?.textContent).toContain('.search-dropdown')
+    expect(style?.textContent).toContain('current-user')
+    expect(style?.textContent).toContain('language')
+    expect(style?.textContent).toContain('display: none !important')
+  })
+
+  it('is idempotent across repeated calls on the same document', () => {
+    const doc = document.implementation.createHTMLDocument('drawer')
+
+    applyLinuxDoDrawerChrome(doc)
+    applyLinuxDoDrawerChrome(doc)
+
+    expect(doc.querySelectorAll('#bewly-drawer-hidden-chrome')).toHaveLength(1)
+  })
+
+  it('does nothing when the iframe document is unavailable', () => {
+    expect(() => applyLinuxDoDrawerChrome(null)).not.toThrow()
+    expect(() => applyLinuxDoDrawerChrome(undefined)).not.toThrow()
+  })
+})
+
 describe('linux.do content script and drawer boundaries', () => {
   it('keeps the content script free of Bilibili DOM assumptions', async () => {
     const entrySource = await readFile(resolve('src/contentScripts/index.ts'), 'utf8')
@@ -1003,5 +1036,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(drawerSource).toContain('handleClose')
     expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"')
     expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
+    expect(drawerSource).toContain('import { applyLinuxDoDrawerChrome } from \'~/sites/linuxDo\'')
+    expect(drawerSource).toContain('applyLinuxDoDrawerChrome(iframeRef.value?.contentDocument)')
   })
 })

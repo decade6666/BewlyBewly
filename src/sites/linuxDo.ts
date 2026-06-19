@@ -53,9 +53,54 @@ const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
 const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
+// Drawer reading view: hide Linux.do's own left sidebar and the top-right
+// language-switch / search / avatar header icons. The drawer iframe is a
+// same-origin linux.do document, so the host content script injects this style
+// into it (the content script itself never runs inside sub-frames).
+const DRAWER_HIDDEN_CHROME_STYLE_ID = 'bewly-drawer-hidden-chrome'
+// Language/translate/locale matching is scoped to `.d-header` so it cannot hit
+// in-post translator buttons; the rest are stock Discourse class/id selectors.
+const DRAWER_HIDDEN_CHROME_CSS = `
+.sidebar-wrapper {
+  display: none !important;
+}
+
+.d-header .search-dropdown,
+.d-header #search-button,
+.d-header .current-user,
+.d-header #current-user,
+.d-header .header-dropdown-toggle.current-user,
+.d-header [class*="language" i],
+.d-header [class*="translate" i],
+.d-header [class*="locale" i],
+.d-header [title*="language" i],
+.d-header [title*="translate" i],
+.d-header [aria-label*="language" i],
+.d-header [aria-label*="translate" i],
+.d-header [title*="语言"],
+.d-header [aria-label*="语言"] {
+  display: none !important;
+}
+`
 
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
 type HomePageBlockedWordMatcher = (text: string) => boolean
+
+export function applyLinuxDoDrawerChrome(doc: Document | null | undefined): void {
+  if (!doc || doc.getElementById(DRAWER_HIDDEN_CHROME_STYLE_ID))
+    return
+
+  const mountPoint = doc.head ?? doc.documentElement
+
+  if (!mountPoint)
+    return
+
+  const style = doc.createElement('style')
+
+  style.id = DRAWER_HIDDEN_CHROME_STYLE_ID
+  style.textContent = DRAWER_HIDDEN_CHROME_CSS
+  mountPoint.appendChild(style)
+}
 
 export function isLinuxDoTopicListPage(url: string): boolean {
   const parsedUrl = parseLinuxDoUrl(url)

@@ -62,6 +62,7 @@ Drawer control contract:
 | Drawer content | Uses `.iframe-drawer-content` with explicit `:style="{ top: drawerTopOffset }"` so iframe content starts below the header when controls are visible. |
 | Drawer iframe sandbox | `sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"`. `allow-popups` lets in-post links (`window.open` / `target="_blank"`) open new tabs; `allow-popups-to-escape-sandbox` keeps those tabs out of the sandbox so external pages load normally. Never add `allow-top-navigation*`. The iframe `src` is always a same-origin linux.do URL (validated by `normalizeLinuxDoTopicUrl`), so these tokens do not widen the iframe's reach over the host page. |
 | Drawer buttons | Only “Open in new tab” and “Close / Esc” are allowed. The legacy “Copy link” button and clipboard behavior are removed. |
+| Drawer hidden chrome | On iframe load `IframeDrawer.vue` calls `applyLinuxDoDrawerChrome(iframeRef.value?.contentDocument)` from `src/sites/linuxDo.ts`. The content script never runs inside the drawer sub-frame (manifest has no `all_frames`), so the host injects one `<style id="bewly-drawer-hidden-chrome">` into the same-origin iframe document to hide Linux.do's own left sidebar (`.sidebar-wrapper`) and the top-right search / avatar / language-switch header icons. Language/translate/locale matching is scoped under `.d-header`; the injector is null-safe and idempotent (single style per document). It must not touch the host page or the extension Shadow DOM. |
 | Floating settings button | Uses `.linux-do-settings-button`, fixed bottom-right placement, and `z-index: 2147483646`. |
 | Drawer root | Uses `.linux-do-drawer-root`, fixed full-screen placement, `z-index: 2147483647`, and is mounted only while `showIframeDrawer` is true. |
 | Settings panel | Uses `role="dialog"`, localized labels, and checkbox bindings to shared settings fields. |
@@ -81,6 +82,8 @@ Drawer control contract:
 | `allow-top-navigation*` appears in the drawer iframe sandbox | Treat as a regression; in-post links can navigate the top page out of the drawer. |
 | Copy-link behavior appears in the drawer | Treat as a regression; remove clipboard logic and localized copy labels. |
 | Top-level history calls appear in `IframeDrawer.vue` | Treat as a regression; history belongs in the content-script app. |
+| Drawer opens on a topic | Inside the iframe the Linux.do left sidebar and the top-right search / avatar / language-switch icons are hidden via the injected style; the host page (no drawer) keeps them. |
+| `applyLinuxDoDrawerChrome` call or `~/sites/linuxDo` import removed from `IframeDrawer.vue` | Treat as a regression; the drawer reverts to showing Linux.do's sidebar and header icons. |
 
 ### 5. Good/Base/Bad Cases
 
@@ -94,6 +97,8 @@ Drawer control contract:
 - Source regression: assert `IframeDrawer.vue` imports `Button`, contains `handleOpenInNewTab` and `handleClose`, and does not contain `copyLink`, `clipboard`, or localized “Copy link” text.
 - Source regression: assert `IframeDrawer.vue` does not call `history.pushState`, `history.replaceState`, or `history.back`.
 - Source regression: assert `IframeDrawer.vue` contains the exact `sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"` string; `linuxDoMigration.spec.ts` asserts it verbatim, so update that assertion in lockstep with any sandbox change.
+- Source regression: assert `IframeDrawer.vue` imports `applyLinuxDoDrawerChrome` from `~/sites/linuxDo` and calls it with `iframeRef.value?.contentDocument` in `handleIframeLoad`.
+- Behavior: assert `applyLinuxDoDrawerChrome` injects a single `<style id="bewly-drawer-hidden-chrome">` covering `.sidebar-wrapper`, search, `current-user`, and language selectors, is idempotent, and is null-safe.
 - Behavior/build validation after component changes: run targeted `src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, `pnpm lint`, and `pnpm build` when packaging is affected.
 - Manual browser check when possible: verify the settings button is visible on Linux.do and drawer controls remain visible over the iframe.
 
