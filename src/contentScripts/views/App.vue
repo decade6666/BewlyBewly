@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { settings } from '~/logic'
-import { findLinuxDoTopicLink, isLinuxDoTopicListPage, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
+import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
 
@@ -126,6 +126,14 @@ const blockedWordsStatusMessage = ref<string>('')
 const blockedWordsImportInput = ref<HTMLInputElement | null>(null)
 const showBlockedWordsDialog = ref<boolean>(false)
 const isPageAtTop = ref<boolean>(true)
+const isHostDark = ref(false)
+let hostSchemeObserver: MutationObserver | null = null
+let hostSchemeMediaQuery: MediaQueryList | null = null
+let hostSchemeMediaHandler: (() => void) | null = null
+
+function updateHostDarkScheme() {
+  isHostDark.value = detectLinuxDoColorScheme(document) === 'dark'
+}
 
 function updatePageScrollState() {
   isPageAtTop.value = window.scrollY <= 10
@@ -376,17 +384,40 @@ watch(showIframeDrawer, open => setLinuxDoDrawerHostScrollLock(open, document))
 
 onMounted(() => {
   updatePageScrollState()
+  updateHostDarkScheme()
+
+  hostSchemeObserver = new MutationObserver(() => {
+    requestAnimationFrame(updateHostDarkScheme)
+  })
+  hostSchemeObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['href', 'data-theme-name', 'data-theme-id'],
+  })
+
+  hostSchemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  hostSchemeMediaHandler = () => requestAnimationFrame(updateHostDarkScheme)
+  hostSchemeMediaQuery.addEventListener('change', hostSchemeMediaHandler)
+
   window.dispatchEvent(new CustomEvent(BEWLY_MOUNTED))
 })
 
 onBeforeUnmount(() => {
+  hostSchemeObserver?.disconnect()
+  hostSchemeObserver = null
+  if (hostSchemeMediaQuery && hostSchemeMediaHandler)
+    hostSchemeMediaQuery.removeEventListener('change', hostSchemeMediaHandler)
+  hostSchemeMediaQuery = null
+  hostSchemeMediaHandler = null
+
   setLinuxDoDrawerHostScrollLock(false, document)
   dispatchDrawerRouteChange({ isOpen: false })
 })
 </script>
 
 <template>
-  <div class="linux-do-extension-root">
+  <div class="linux-do-extension-root" :class="{ dark: isHostDark }">
     <button
       v-if="!showSettingsPanel"
       class="linux-do-scroll-action-button"
@@ -582,6 +613,19 @@ onBeforeUnmount(() => {
   color: var(--bew-text-1);
   font-family: Inter, Roboto, "Noto Sans", sans-serif;
   line-height: 1.4;
+}
+
+.linux-do-extension-root.dark {
+  --bew-bg: hsl(230deg 12% 4%);
+  --bew-content-solid: hsl(230deg 12% 10%);
+  --bew-content-solid-hover: hsl(230deg 12% 25%);
+  --bew-elevated-solid: hsl(230deg 12% 15%);
+  --bew-elevated-solid-hover: hsl(230deg 12% 30%);
+  --bew-fill-1: rgb(131 131 145 / 15%);
+  --bew-fill-2: rgb(131 131 145 / 30%);
+  --bew-border-color: rgb(131 131 145 / 18%);
+  --bew-text-1: hsl(215deg 19% 98%);
+  --bew-text-2: hsl(215deg 19% 90% / 80%);
 }
 
 .linux-do-settings-button {
