@@ -429,3 +429,37 @@ Added a floating action button above the Linux.do settings button in App.vue tha
 ### Next Steps
 
 - None - task complete
+
+## Session 14: Drawer header actions + linux.do dark scheme follow
+
+**Date**: 2026-06-20
+**Task**: Drawer header actions + linux.do dark scheme follow
+**Branch**: `feat/drawer-header-actions`
+
+### Summary
+
+Moved iframe drawer header actions to top-right with themed close Esc keycap; made the linux.do overlay follow the host site's actual color scheme via detectLinuxDoColorScheme (--scheme-type primary, --secondary luminance fallback) with a .dark palette wired through a MutationObserver + matchMedia; fixed version-coupled migration test assertions to derive from package.json. Verified in real dark linux.do (CDP): buttons dark bg/white text, keycap adapts, four drawer behaviors intact, no extension console errors. typecheck/lint/targeted tests green (98 pass).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b9f2f084` | (see git log) |
+| `405e44c4` | (see git log) |
+| `4c812fc2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
