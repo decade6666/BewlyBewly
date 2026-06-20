@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Verify drawer controls remain scoped, clickable, keyboard-accessible, and behavior-preserving"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Verify lint/typecheck/test expectations and report run/not-run boundaries"}

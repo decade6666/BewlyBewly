@@ -138,15 +138,12 @@ onKeyStroke('Escape', handleEscape, { target: window })
         v-if="headerShow"
         class="iframe-drawer-header"
         pos="absolute top-0 left-0" z-2 flex="~ items-center justify-end gap-2"
-        max-w="$bew-page-max-width" w-full h="$bew-top-bar-height"
-        m-auto px-4
+        w-full h="$bew-top-bar-height"
+        px-4
         pointer-events-none
       >
         <Button
-          style="
-            --b-button-color: var(--bew-elevated-solid);
-            --b-button-color-hover: var(--bew-elevated-solid-hover);
-          "
+          class="drawer-header-btn"
           pointer-events-auto
           @click="handleOpenInNewTab"
         >
@@ -156,10 +153,7 @@ onKeyStroke('Escape', handleEscape, { target: window })
           {{ drawerLabels.openInNewTab }}
         </Button>
         <Button
-          style="
-            --b-button-color: var(--bew-elevated-solid);
-            --b-button-color-hover: var(--bew-elevated-solid-hover);
-          "
+          class="drawer-header-btn"
           pointer-events-auto
           @click="handleClose"
         >
@@ -201,6 +195,38 @@ onKeyStroke('Escape', handleEscape, { target: window })
 <style lang="scss" scoped>
 .iframe-drawer-header {
   right: 0;
+}
+
+.drawer-header-btn {
+  --b-button-color: var(--bew-elevated-solid);
+  --b-button-color-hover: var(--bew-elevated-solid-hover);
+  --b-button-text-color: var(--bew-text-1);
+
+  :deep(kbd) {
+    display: inline-block;
+    background-color: var(--bew-fill-1);
+    padding: 0 0.5em;
+    margin: 0.14em 0.2em;
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 1px var(--bew-border-color),
+      0 1.4px 0 0 var(--bew-fill-2);
+    line-height: 1.24;
+    cursor: pointer;
+    transition: 0.3s;
+
+    &:hover {
+      background-color: var(--bew-fill-2);
+    }
+
+    &:active {
+      background-color: var(--bew-fill-3);
+      translate: 0 1.4px;
+      box-shadow:
+        0 0 0 1px var(--bew-border-color),
+        0 -1.4px 0 0 var(--bew-fill-2);
+    }
+  }
 }
 
 .iframe-drawer-content {
