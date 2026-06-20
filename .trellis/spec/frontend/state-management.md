@@ -368,6 +368,91 @@ Keep all active reasons available to the site helper, remove only the disabled r
 
 ---
 
+## Scenario: Linux.do Overlay Follows Host Site Color Scheme
+
+### 1. Scope / Trigger
+
+- Trigger: theming the Linux.do extension overlay (settings button/panel, scroll button, iframe drawer header buttons) so it matches the site's actual dark/light scheme.
+- Applies to `src/sites/linuxDo.ts`, `src/contentScripts/views/App.vue`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a cross-layer contract because the overlay palette is host-only (`.linux-do-extension-root` hardcodes `--bew-*`); it must NOT reuse `useDark()`/extension `settings.theme`, which track OS/extension preference rather than the host site's selected Discourse scheme.
+
+### 2. Signatures
+
+```typescript
+// src/sites/linuxDo.ts — pure detection, null-safe, no DOM mutation
+export function detectLinuxDoColorScheme(doc: Document | null | undefined): 'dark' | 'light'
+```
+
+Content-script wiring contract (`App.vue`):
+
+```text
+const isHostDark = ref(false)
+function updateHostDarkScheme() { isHostDark.value = detectLinuxDoColorScheme(document) === 'dark' }
+<div class="linux-do-extension-root" :class="{ dark: isHostDark }">
+.linux-do-extension-root.dark { /* override color-bearing --bew-* only */ }
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| Primary signal | `getComputedStyle(doc.documentElement).getPropertyValue('--scheme-type').trim()`; return it only when exactly `'dark'` or `'light'`. |
+| Fallback signal | `--secondary` background color → W3C AERT brightness `r*0.299+g*0.587+b*0.114`; `< 128` ⇒ `'dark'`, else `'light'`. Parse `#rgb`, `#rrggbb`, `rgb()`, `rgba()`. |
+| Default | Return `'light'` for null/missing `doc`, missing `documentElement`/`defaultView`, empty `--scheme-type` with unparseable `--secondary`. Never throw. |
+| Detection purity | `detectLinuxDoColorScheme` only reads computed styles; it does not toggle classes, set cookies, or dispatch events (unlike `useDark()`). |
+| Class binding | `.linux-do-extension-root` gets `dark` class iff host scheme is dark; `.linux-do-extension-root.dark` overrides ONLY color-bearing vars (`--bew-bg/-content-solid(-hover)/-elevated-solid(-hover)/-fill-1/-fill-2/-border-color/-text-1/-text-2`). Radius, page-max-width, top-bar-height, theme-color, error-color stay shared. |
+| Change observation | `MutationObserver` on `document.documentElement` (`childList+subtree+attributes`, `attributeFilter: ['href','data-theme-name','data-theme-id']`) catches the `color_definitions` stylesheet swap; recompute inside `requestAnimationFrame`. A `matchMedia('(prefers-color-scheme: dark)')` `change` listener re-reads the actual site scheme. |
+| Cleanup | Observer disconnected and media listener removed in `onBeforeUnmount`; references nulled. No leak. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|---|---|
+| `:root` has `--scheme-type: dark` | Return `'dark'` (ignore `--secondary`). |
+| `:root` has `--scheme-type: light` | Return `'light'`. |
+| `--scheme-type` empty, `--secondary: #222222` | Fallback brightness ~34 ⇒ `'dark'`. |
+| `--scheme-type` empty, `--secondary: #ffffff` | Fallback brightness ~255 ⇒ `'light'`. |
+| `--secondary` is `rgb()/rgba()` | Parse first 3 channels; same threshold. |
+| `--secondary` malformed / non-hex-non-rgb (e.g. `hsl()`, named) | Return `'light'`; do not throw. |
+| `doc`/`documentElement`/`defaultView` null | Return `'light'`. |
+| User toggles Discourse scheme without reload | Stylesheet `<link>` attrs change → observer fires → overlay re-themes. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: overlay reads the live `--scheme-type`, binds `.dark`, and re-themes on Discourse toggle and OS change, with observer/listener cleaned up on unmount.
+- Base: on a site with only `--secondary` (very old Discourse), luminance fallback still resolves dark/light.
+- Bad: theming the overlay from `useDark()`/`settings.theme` (OS/extension preference), so buttons stay light while linux.do is dark; or overriding non-color vars (radius/top-bar-height) in the `.dark` block; or leaving the observer connected after unmount.
+
+### 6. Tests Required
+
+- Unit (`linuxDoMigration.spec.ts`): `detectLinuxDoColorScheme` returns `'dark'`/`'light'` from `--scheme-type`; `--secondary` luminance fallback for `#222222`/`#ffffff`; `#rgb` short hex and `rgb()` parsing; returns `'light'` for null/undefined `doc`.
+- Source regression: assert `App.vue` imports `detectLinuxDoColorScheme`, declares `isHostDark`, binds `:class="{ dark: isHostDark }"` on `.linux-do-extension-root`, sets up `MutationObserver` + `matchMedia`, and defines a `.linux-do-extension-root.dark` palette block.
+- Validation after changes: `pnpm typecheck`, `pnpm exec eslint <changed files>`, targeted `src/tests/linuxDoMigration.spec.ts`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+// Themes the overlay from the extension/OS preference, not the host site
+const isDark = useDark().isDark // tracks settings.theme + prefers-color-scheme
+```
+
+The overlay stays light while linux.do is in a user-selected dark Discourse scheme.
+
+#### Correct
+
+```typescript
+function updateHostDarkScheme() {
+  isHostDark.value = detectLinuxDoColorScheme(document) === 'dark'
+}
+// re-run on MutationObserver(color_definitions link) + matchMedia change; clean up on unmount
+```
+
+The overlay reflects the host site's actual rendered scheme and follows runtime toggles.
+
+---
+
 ## State Categories
 
 | Category | Location | Notes |

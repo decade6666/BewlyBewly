@@ -8,6 +8,7 @@ import { cleanLegacySettingsStorageValue, removeLegacySettingsFields } from '../
 import { formatManifestVersion, getManifest } from '../manifest'
 import {
   applyLinuxDoDrawerChrome,
+  detectLinuxDoColorScheme,
   findLinuxDoTopicLink,
   hideLinuxDoHomePageElements,
   isLinuxDoHomePage,
@@ -1134,6 +1135,83 @@ describe('linux.do drawer host scroll lock', () => {
 
     expect(appSource).toContain('setLinuxDoDrawerHostScrollLock')
     expect(appSource).toContain('watch(showIframeDrawer')
+  })
+})
+
+describe('detectLinuxDoColorScheme', () => {
+  it('returns dark when --scheme-type is dark', () => {
+    const doc = createMockDocument({ '--scheme-type': 'dark' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('dark')
+  })
+
+  it('returns light when --scheme-type is light', () => {
+    const doc = createMockDocument({ '--scheme-type': 'light' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('light')
+  })
+
+  it('falls back to --secondary luminance for dark background', () => {
+    const doc = createMockDocument({ '--secondary': '#222222' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('dark')
+  })
+
+  it('falls back to --secondary luminance for light background', () => {
+    const doc = createMockDocument({ '--secondary': '#ffffff' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('light')
+  })
+
+  it('falls back to rgb() format', () => {
+    const doc = createMockDocument({ '--secondary': 'rgb(34, 34, 34)' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('dark')
+  })
+
+  it('falls back to short hex #rgb format', () => {
+    const doc = createMockDocument({ '--secondary': '#fff' })
+
+    expect(detectLinuxDoColorScheme(doc)).toBe('light')
+  })
+
+  it('returns light for null document', () => {
+    expect(detectLinuxDoColorScheme(null)).toBe('light')
+  })
+
+  it('returns light for undefined document', () => {
+    expect(detectLinuxDoColorScheme(undefined)).toBe('light')
+  })
+})
+
+function createMockDocument(cssVars: Record<string, string>): Document {
+  const doc = {
+    documentElement: {},
+    defaultView: {
+      getComputedStyle() {
+        return {
+          getPropertyValue(name: string) {
+            return cssVars[name] ?? ''
+          },
+        }
+      },
+    },
+  } as unknown as Document
+
+  return doc
+}
+
+describe('app.vue host dark mode detection', () => {
+  it('binds dark class on the extension root based on isHostDark', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+
+    expect(appSource).toContain(':class="{ dark: isHostDark }"')
+    expect(appSource).toContain('detectLinuxDoColorScheme')
+    expect(appSource).toContain('const isHostDark = ref(false)')
+    expect(appSource).toContain('updateHostDarkScheme')
+    expect(appSource).toContain('MutationObserver')
+    expect(appSource).toContain('matchMedia')
+    expect(appSource).toContain('.linux-do-extension-root.dark')
   })
 })
 

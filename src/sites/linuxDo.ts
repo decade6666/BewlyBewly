@@ -88,6 +88,100 @@ interface TopicTag {
 type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
 type HomePageBlockedWordMatcher = (text: string) => boolean
 
+/**
+ * Detect whether the linux.do site is using a dark color scheme.
+ *
+ * Reads the Discourse `--scheme-type` CSS custom property as the primary signal.
+ * Falls back to computing W3C AERT brightness of the `--secondary` background color
+ * when `--scheme-type` is absent (very old Discourse).
+ *
+ * Returns `'light'` for null/missing documents or when no signal resolves.
+ */
+export function detectLinuxDoColorScheme(doc: Document | null | undefined): 'dark' | 'light' {
+  if (!doc)
+    return 'light'
+
+  const root = doc.documentElement
+
+  if (!root)
+    return 'light'
+
+  const win = doc.defaultView
+
+  if (!win)
+    return 'light'
+
+  const schemeType = win.getComputedStyle(root).getPropertyValue('--scheme-type').trim()
+
+  if (schemeType === 'dark' || schemeType === 'light')
+    return schemeType
+
+  const secondary = win.getComputedStyle(root).getPropertyValue('--secondary').trim()
+
+  if (!secondary)
+    return 'light'
+
+  const rgb = parseCssColorToRgb(secondary)
+
+  if (!rgb)
+    return 'light'
+
+  const brightness = rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114
+
+  return brightness < 128 ? 'dark' : 'light'
+}
+
+function parseCssColorToRgb(value: string): { r: number, g: number, b: number } | null {
+  if (value.startsWith('#'))
+    return parseHexColor(value)
+
+  if (value.startsWith('rgb'))
+    return parseRgbColor(value)
+
+  return null
+}
+
+function parseHexColor(hex: string): { r: number, g: number, b: number } | null {
+  const normalized = hex.slice(1)
+
+  if (normalized.length === 3) {
+    const r = Number.parseInt(normalized[0] + normalized[0], 16)
+    const g = Number.parseInt(normalized[1] + normalized[1], 16)
+    const b = Number.parseInt(normalized[2] + normalized[2], 16)
+
+    return { r, g, b }
+  }
+
+  if (normalized.length === 6) {
+    const r = Number.parseInt(normalized.slice(0, 2), 16)
+    const g = Number.parseInt(normalized.slice(2, 4), 16)
+    const b = Number.parseInt(normalized.slice(4, 6), 16)
+
+    return { r, g, b }
+  }
+
+  return null
+}
+
+function parseRgbColor(value: string): { r: number, g: number, b: number } | null {
+  const openParen = value.indexOf('(')
+
+  if (openParen === -1)
+    return null
+
+  const closeParen = value.indexOf(')', openParen)
+
+  if (closeParen === -1)
+    return null
+
+  const parts = value.slice(openParen + 1, closeParen).split(',').map(part => Number.parseFloat(part.trim()))
+
+  if (parts.length < 3 || parts.some(n => Number.isNaN(n)))
+    return null
+
+  return { r: parts[0], g: parts[1], b: parts[2] }
+}
+
 export function applyLinuxDoDrawerChrome(doc: Document | null | undefined): void {
   if (!doc || doc.getElementById(DRAWER_HIDDEN_CHROME_STYLE_ID))
     return
