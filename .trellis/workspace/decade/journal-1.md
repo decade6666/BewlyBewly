@@ -463,3 +463,37 @@ Moved iframe drawer header actions to top-right with themed close Esc keycap; ma
 ### Next Steps
 
 - None - task complete
+
+## Session 15: Release v0.2.1 (PR #5 merge + version bump, tag & GitHub release)
+
+**Date**: 2026-06-20
+**Task**: Release v0.2.1 (PR #5 merge + version bump, tag & GitHub release)
+**Branch**: `main`
+
+### Summary
+
+Post-clear wrap-up of the prior session's release work, left unjournaled after Session 14. PR #5 (drawer header repositioning to top-right + Esc keycap + linux.do dark-scheme follow) squash-merged to main (5686c864); added a trellis doc capturing the real-browser extension verification workflow (4d581bd2); bumped version 0.2.0 -> 0.2.1 (819b53cb), built Chrome + Firefox extensions, pushed main, created/pushed git tag v0.2.1, and published the GitHub release with extension.zip + extension-firefox.zip assets. No new code this session. Verified: v0.2.1 tag present and package.json at 0.2.1.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4d581bd2` | (see git log) |
+| `5686c864` | (see git log) |
+| `819b53cb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
