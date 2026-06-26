@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
-- **Last Active**: 2026-06-20
+- **Total Sessions**: 16
+- **Last Active**: 2026-06-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~500 | Active |
+| `journal-1.md` | ~533 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-06-26 | 刷新按钮在帖子列表页只刷新列表 + 发布 v0.2.2 | `85525752`, `2e7df833` | `main` |
 | 15 | 2026-06-20 | Release v0.2.1 (PR #5 merge + version bump, tag & GitHub release) | `4d581bd2`, `5686c864`, `819b53cb` | `main` |
 | 14 | 2026-06-20 | Drawer header actions + linux.do dark scheme follow | `b9f2f084`, `405e44c4`, `4c812fc2` | `feat/drawer-header-actions` |
 | 13 | 2026-06-19 | Scroll-top & refresh button above Linux.do settings | `381eb52c` | `feat/scroll-top-refresh-button` |

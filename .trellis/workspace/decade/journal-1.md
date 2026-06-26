@@ -497,3 +497,36 @@ Post-clear wrap-up of the prior session's release work, left unjournaled after S
 ### Next Steps
 
 - None - task complete
+
+## Session 16: 刷新按钮在帖子列表页只刷新列表 + 发布 v0.2.2
+
+**Date**: 2026-06-26
+**Task**: 刷新按钮在帖子列表页只刷新列表 + 发布 v0.2.2
+**Branch**: `main`
+
+### Summary
+
+App.vue 浮动刷新按钮在 topic list 页改为只刷新帖子列表（点击 Discourse 新帖横幅/激活导航 pill 触发 Ember 同路由原地刷新），非列表页保留整页重载；新增 refreshLinuxDoTopicListInPlace() 与纯函数 resolveScrollAction() 及单测。codex 实现、codex+Antigravity(gemini-3.1-pro) 双审查、review 修复 #1/#4/#5。eslint/typecheck/vitest(108) 全绿。发布 GitHub Release v0.2.2（双 zip 资产，--latest）。真机选择器验证仍 pending（Cloudflare Turnstile 拦截）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `85525752` | (see git log) |
+| `2e7df833` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
