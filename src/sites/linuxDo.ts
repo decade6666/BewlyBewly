@@ -53,6 +53,17 @@ const NATIVE_TOPIC_TAG_LINK_SELECTOR = '.discourse-tags a[href], a.discourse-tag
 const INJECTED_TAG_CONTAINER_ATTR = 'data-bewly-topic-tags'
 const INJECTED_TAG_MARKER_ATTR = 'data-bewly-topic-tag'
 const CATEGORY_LINK_SELECTOR = 'a[href^="/c/"]'
+// Discourse list-navigation selectors used to refresh the topic list in-place.
+// See .trellis/tasks/06-26-refresh-post-list-only/research/discourse-list-refresh.md
+const LINUX_DO_NEW_TOPICS_BANNER_SELECTOR = '.show-more.has-topics a.alert.alert-info.clickable'
+// Ordered fallback chain (scoped/specific first); precedence is intentional, do not
+// collapse into a single comma-compound selector (that returns first match in DOCUMENT order).
+const LINUX_DO_ACTIVE_NAV_PILL_SELECTORS = [
+  '.nav-pills li.active > a[href]',
+  '.nav-pills a.active[href]',
+  '.navigation-container .nav-pills li.active a[href]',
+  'ul.nav-pills a[aria-current="page"]',
+]
 const TOPIC_TITLE_BOTTOM_LINE_SELECTOR = '.link-bottom-line'
 const TOPIC_CATEGORY_CELL_SELECTOR = 'td.topic-category-data'
 // Drawer reading view: hide Linux.do's own header and left sidebar inside
@@ -269,6 +280,31 @@ export function isLinuxDoTopicListPage(url: string): boolean {
   const pathname = normalizePathname(parsedUrl.pathname)
 
   return TOPIC_LIST_PATHS.has(pathname) || CATEGORY_PATH_PATTERN.test(pathname)
+}
+
+// Try to refresh the linux.do (Discourse) topic list in-place via DOM, without a full reload.
+// Returns true if a refresh affordance was triggered; false if none found (caller should fall back).
+export function refreshLinuxDoTopicListInPlace(doc: Document | null | undefined = document): boolean {
+  if (!doc)
+    return false
+
+  const banner = doc.querySelector<HTMLAnchorElement>(LINUX_DO_NEW_TOPICS_BANNER_SELECTOR)
+
+  if (banner) {
+    banner.click()
+    return true
+  }
+
+  for (const selector of LINUX_DO_ACTIVE_NAV_PILL_SELECTORS) {
+    const pill = doc.querySelector<HTMLAnchorElement>(selector)
+
+    if (pill) {
+      pill.click()
+      return true
+    }
+  }
+
+  return false
 }
 
 export function isLinuxDoHomePage(url: string): boolean {

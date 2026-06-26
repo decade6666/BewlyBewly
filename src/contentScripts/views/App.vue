@@ -3,8 +3,9 @@ import { useEventListener } from '@vueuse/core'
 
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
+import { resolveScrollAction } from '~/contentScripts/scrollAction'
 import { settings } from '~/logic'
-import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
+import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, refreshLinuxDoTopicListInPlace, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
 
@@ -140,12 +141,22 @@ function updatePageScrollState() {
 }
 
 function handleScrollActionClick() {
-  if (isPageAtTop.value) {
-    window.location.reload()
-    return
-  }
+  const listRefreshTriggered
+    = isPageAtTop.value
+    && isLinuxDoTopicListPage(location.href)
+    && refreshLinuxDoTopicListInPlace()
 
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  switch (resolveScrollAction(isPageAtTop.value, listRefreshTriggered)) {
+    case 'refresh-list-scroll-top':
+      window.scrollTo({ top: 0 })
+      break
+    case 'reload':
+      window.location.reload()
+      break
+    case 'smooth-scroll-top':
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      break
+  }
 }
 
 function getAppLocale(language: string): AppLocale {
