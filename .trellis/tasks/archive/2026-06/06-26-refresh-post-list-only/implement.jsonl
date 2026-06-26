@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-26-refresh-post-list-only/research/discourse-list-refresh.md", "reason": "Approach A selectors (active nav pill + new-topics banner), Discourse refetch behavior, ISOLATED-world constraints, and fallback strategy that drive the implementation."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Vue SFC conventions for editing App.vue handler logic consistently."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "State/ref patterns and the linux.do overlay scenario conventions in this content script."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "TS typing conventions for the new linuxDo.ts helper signature."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing isLinuxDoTopicListPage / linuxDo.ts helpers instead of duplicating DOM logic."}

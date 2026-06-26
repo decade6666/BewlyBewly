@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-26-refresh-post-list-only/research/discourse-list-refresh.md", "reason": "Acceptance expectations, selector caveats, and the required real-browser verification note to validate against."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Quality bar for content-script changes (error handling, fallbacks, no silent failures)."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Type-safety checks for the new helper and handler edits."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify reuse of existing linuxDo.ts helpers rather than duplicated DOM logic."}

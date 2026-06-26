@@ -1,0 +1,142 @@
+你是资深前端代码审查员。只读审查以下浏览器扩展(Vue 3 + TS, linux.do)的前端变更，按 Critical / Warning / Info 分级，每条给 文件:行 与具体建议，最后给一句总体结论。不要输出无关内容。
+
+背景：右下角浮动按钮 handleScrollActionClick 原来在页面顶部时整页 window.location.reload()。改为：顶部 + isLinuxDoTopicListPage(location.href) + refreshLinuxDoTopicListInPlace() 返回 true → window.scrollTo({top:0}) 不整页重载；否则 reload；非顶部保持平滑回顶。refreshLinuxDoTopicListInPlace 在 linuxDo.ts，通过点击 Discourse 横幅或激活 nav pill 触发列表刷新，返回是否点了。
+
+审查重点：handler 控制流/分支正确性、响应式与副作用、边界(点击但列表未变的静默失败、SPA 导航)、测试是否覆盖 handler(注意新测试只测了 helper 没测 handler)、与仓库 antfu 风格(无分号/单引号)一致性。
+
+=== git diff: src/contentScripts/views/App.vue ===
+diff --git a/src/contentScripts/views/App.vue b/src/contentScripts/views/App.vue
+index e9a74d88..e4d194b0 100644
+--- a/src/contentScripts/views/App.vue
++++ b/src/contentScripts/views/App.vue
+@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
+ import IframeDrawer from '~/components/IframeDrawer.vue'
+ import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
+ import { settings } from '~/logic'
+-import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
++import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, refreshLinuxDoTopicListInPlace, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
+ 
+ const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
+ 
+@@ -141,6 +141,11 @@ function updatePageScrollState() {
+ 
+ function handleScrollActionClick() {
+   if (isPageAtTop.value) {
++    if (isLinuxDoTopicListPage(location.href) && refreshLinuxDoTopicListInPlace()) {
++      window.scrollTo({ top: 0 })
++      return
++    }
++
+     window.location.reload()
+     return
+   }
+
+=== src/tests/refreshLinuxDoTopicList.spec.ts (新增) ===
+import { describe, expect, it, vi } from 'vitest'
+
+import { refreshLinuxDoTopicListInPlace } from '../sites/linuxDo'
+
+function createDocument(html: string): Document {
+  const doc = document.implementation.createHTMLDocument('')
+
+  doc.body.innerHTML = html
+
+  return doc
+}
+
+describe('refreshLinuxDoTopicListInPlace', () => {
+  it('clicks the show-more banner when present', () => {
+    const doc = createDocument(`
+      <div class="show-more has-topics">
+        <a class="alert alert-info clickable" href="/latest">3 new topics</a>
+      </div>
+      <ul class="nav-pills">
+        <li class="active"><a href="/latest">Latest</a></li>
+      </ul>
+    `)
+    const banner = doc.querySelector<HTMLAnchorElement>('.show-more.has-topics a.alert.alert-info.clickable')
+
+    if (!banner)
+      throw new Error('Expected banner fixture')
+
+    const clickSpy = vi.spyOn(banner, 'click')
+
+    expect(refreshLinuxDoTopicListInPlace(doc)).toBe(true)
+    expect(clickSpy).toHaveBeenCalledOnce()
+  })
+
+  it('clicks the active nav pill when no banner is present', () => {
+    const doc = createDocument(`
+      <div class="navigation-container">
+        <ul class="nav-pills">
+          <li class="active"><a href="/latest">Latest</a></li>
+          <li><a href="/top">Top</a></li>
+        </ul>
+      </div>
+    `)
+    const pill = doc.querySelector<HTMLAnchorElement>('.nav-pills li.active > a[href]')
+
+    if (!pill)
+      throw new Error('Expected active nav pill fixture')
+
+    const clickSpy = vi.spyOn(pill, 'click')
+
+    expect(refreshLinuxDoTopicListInPlace(doc)).toBe(true)
+    expect(clickSpy).toHaveBeenCalledOnce()
+  })
+
+  it('returns false when no in-place refresh affordance is present', () => {
+    const doc = createDocument(`
+      <main>
+        <p>No refresh affordances here.</p>
+      </main>
+    `)
+    const clickSpy = vi.spyOn(HTMLElement.prototype, 'click')
+
+    try {
+      expect(refreshLinuxDoTopicListInPlace(doc)).toBe(false)
+      expect(clickSpy).not.toHaveBeenCalled()
+    }
+    finally {
+      clickSpy.mockRestore()
+    }
+  })
+})
+
+=== 供参考: src/sites/linuxDo.ts 新增函数 ===
+diff --git a/src/sites/linuxDo.ts b/src/sites/linuxDo.ts
+index 1a98d457..4dcaed52 100644
+--- a/src/sites/linuxDo.ts
++++ b/src/sites/linuxDo.ts
+@@ -271,6 +271,31 @@ export function isLinuxDoTopicListPage(url: string): boolean {
+   return TOPIC_LIST_PATHS.has(pathname) || CATEGORY_PATH_PATTERN.test(pathname)
+ }
+ 
++// Try to refresh the linux.do (Discourse) topic list in-place via DOM, without a full reload.
++// Returns true if a refresh affordance was triggered; false if none found (caller should fall back).
++export function refreshLinuxDoTopicListInPlace(doc: Document = document): boolean {
++  const banner = doc.querySelector<HTMLAnchorElement>(
++    '.show-more.has-topics a.alert.alert-info.clickable',
++  )
++
++  if (banner) {
++    banner.click()
++    return true
++  }
++
++  const pill = doc.querySelector<HTMLAnchorElement>('.nav-pills li.active > a[href]')
++    || doc.querySelector<HTMLAnchorElement>('.nav-pills a.active[href]')
++    || doc.querySelector<HTMLAnchorElement>('.navigation-container .nav-pills li.active a[href]')
++    || doc.querySelector<HTMLAnchorElement>('ul.nav-pills a[aria-current="page"]')
++
++  if (pill) {
++    pill.click()
++    return true
++  }
++
++  return false
++}
++
+ export function isLinuxDoHomePage(url: string): boolean {
+   const parsedUrl = parseLinuxDoUrl(url)
+ 
