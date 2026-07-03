@@ -23,10 +23,12 @@ const blockedLegacyTargets = /bilibili|hdslb/i
 describe('linux.do migration manifest and package metadata', () => {
   it('targets Linux.do only in the extension manifest', async () => {
     const manifest = await getManifest()
+    const manifestRecord = manifest as unknown as Record<string, unknown>
     const contentScriptMatches = manifest.content_scripts?.flatMap(script => script.matches ?? []) ?? []
     const serializedManifest = JSON.stringify(manifest)
 
     const contentScript = manifest.content_scripts?.[0]
+    const chromeKey = manifestRecord.key
 
     expect(manifest.name).toMatch(/^BewlyLinuxDo(?: Dev)?$/)
     expect(manifest.version).toBe(formatManifestVersion(pkg.version))
@@ -47,6 +49,9 @@ describe('linux.do migration manifest and package metadata', () => {
         matches: ['https://linux.do/*'],
       },
     ])
+    if (typeof chromeKey !== 'string')
+      throw new TypeError('Expected Chrome manifest key')
+    expect(chromeKey).toMatch(/^MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A/)
     expect(contentScript?.css).toBeUndefined()
     expect(contentScript?.all_frames).toBeUndefined()
     expect(contentScript?.match_about_blank).toBeUndefined()
@@ -1290,6 +1295,39 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\'] as const')
     expect(enLocaleSource).not.toContain('hide_homepage_guideline_banner')
     expect(cmnCNLocaleSource).not.toContain('hide_homepage_guideline_banner')
+  })
+
+  it('exposes WebDAV sync in the linux.do inline settings panel and syncs blocked words', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const settingsSyncSource = await readFile(resolve('src/logic/settingsSync.ts'), 'utf8')
+    const manifestSource = await readFile(resolve('src/manifest.ts'), 'utf8')
+
+    expect(appSource).toContain('downloadSettings')
+    expect(appSource).toContain('uploadSettings')
+    expect(appSource).toContain('webdavTest')
+    expect(appSource).toContain('settings.webdavEnabled')
+    expect(appSource).toContain('settings.webdavUrl')
+    expect(appSource).toContain('settings.webdavUsername')
+    expect(appSource).toContain('settings.webdavPassword')
+    expect(appSource).toContain('settings.webdavPath')
+    expect(appSource).toContain('settings.webdavAutoSync')
+    expect(appSource).toContain('settings.value.webdavLastSyncTime')
+    expect(appSource).toContain('handleWebdavTest')
+    expect(appSource).toContain('handleWebdavUpload')
+    expect(appSource).toContain('handleWebdavDownload')
+
+    expect(settingsSyncSource).toContain('import type { BlockedWordsState, Settings } from \'./storage\'')
+    expect(settingsSyncSource).toContain('import { blockedWords, originalSettings, settings } from \'./storage\'')
+    expect(settingsSyncSource).toContain('blockedWords: BlockedWordsState')
+    expect(settingsSyncSource).toContain('function buildSyncState()')
+    expect(settingsSyncSource).toContain('blockedWords: cloneBlockedWordsState(blockedWords.value)')
+    expect(settingsSyncSource).toContain('lastSyncedSnapshot = buildSyncSnapshot(syncState)')
+    expect(settingsSyncSource).toContain('() => buildSyncState()')
+    expect(settingsSyncSource).toContain('blockedWords.value = remoteBlockedWords')
+
+    expect(manifestSource).toContain('const CHROME_EXTENSION_KEY =')
+    expect(manifestSource).toContain('if (!isFirefox)')
+    expect(manifestSource).toContain('manifest.key = CHROME_EXTENSION_KEY')
   })
 
   it('renders the full-screen wrapper only when the iframe drawer is open', async () => {

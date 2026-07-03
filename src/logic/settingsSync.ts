@@ -1,5 +1,5 @@
-import type { Settings } from './storage'
-import { originalSettings, settings } from './storage'
+import type { BlockedWordsState, Settings } from './storage'
+import { blockedWords, originalSettings, settings } from './storage'
 import type { WebDavConfig } from './webdav'
 import { webdavDownload, webdavUpload } from './webdav'
 
@@ -7,6 +7,12 @@ interface SyncEnvelope {
   version: 1
   timestamp: number
   settings: Partial<Settings>
+  blockedWords: BlockedWordsState
+}
+
+interface SyncState {
+  settings: Partial<Settings>
+  blockedWords: BlockedWordsState
 }
 
 const WEBDAV_FIELDS: (keyof Settings)[] = [
@@ -31,6 +37,24 @@ function stripWebdavFields(source: Settings): Partial<Settings> {
   ) as Partial<Settings>
 }
 
+function cloneBlockedWordsState(source: BlockedWordsState): BlockedWordsState {
+  return {
+    enabled: Boolean(source.enabled),
+    words: Array.isArray(source.words) ? [...source.words] : [],
+  }
+}
+
+function buildSyncState(): SyncState {
+  return {
+    settings: stripWebdavFields(settings.value),
+    blockedWords: cloneBlockedWordsState(blockedWords.value),
+  }
+}
+
+function buildSyncSnapshot(state: SyncState = buildSyncState()): string {
+  return JSON.stringify(state)
+}
+
 function getWebdavConfig(): WebDavConfig {
   return {
     url: settings.value.webdavUrl,
@@ -52,14 +76,16 @@ let lastSyncedSnapshot: string | null = null
 
 export async function uploadSettings(): Promise<SyncResult> {
   const config = getWebdavConfig()
+  const syncState = buildSyncState()
   const envelope: SyncEnvelope = {
     version: 1,
     timestamp: Date.now(),
-    settings: stripWebdavFields(settings.value),
+    settings: syncState.settings,
+    blockedWords: syncState.blockedWords,
   }
   const result = await webdavUpload(config, JSON.stringify(envelope, null, 2))
   if (result.ok) {
-    lastSyncedSnapshot = JSON.stringify(envelope.settings)
+    lastSyncedSnapshot = buildSyncSnapshot(syncState)
     settings.value.webdavLastSyncTime = envelope.timestamp
   }
   return { ok: result.ok, error: result.error }
@@ -98,9 +124,13 @@ export async function downloadSettings(options: { onlyIfNewer?: boolean } = {}):
     for (const key of WEBDAV_FIELDS)
       (merged[key] as Settings[typeof key]) = settings.value[key]
     settings.value = merged
+    if (envelope.blockedWords) {
+      const remoteBlockedWords = cloneBlockedWordsState(envelope.blockedWords)
+      blockedWords.value = remoteBlockedWords
+    }
     settings.value.webdavLastSyncTime = envelope.timestamp
     settings.value.webdavLocalModifiedTime = 0
-    lastSyncedSnapshot = JSON.stringify(stripWebdavFields(settings.value))
+    lastSyncedSnapshot = buildSyncSnapshot()
   }
   finally {
     applyingRemote = false
@@ -119,9 +149,9 @@ export function setupAutoSync(watchFn: typeof import('vue').watch): void {
   }
 
   autoSyncUnwatch = watchFn(
-    () => stripWebdavFields(settings.value),
+    () => buildSyncState(),
     (newVal) => {
-      const currentSnapshot = JSON.stringify(newVal)
+      const currentSnapshot = buildSyncSnapshot(newVal)
       if (currentSnapshot === lastSyncedSnapshot)
         return
       if (applyingRemote)

@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { resolveScrollAction } from '~/contentScripts/scrollAction'
-import { BLOCKED_WORDS_MAX_BYTES, blockedWords, settings } from '~/logic'
+import { BLOCKED_WORDS_MAX_BYTES, blockedWords, downloadSettings, settings, uploadSettings, webdavTest } from '~/logic'
 import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, refreshLinuxDoTopicListInPlace, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
@@ -34,6 +34,7 @@ const appMessages = {
     blockedWordsSettings: 'Blocked words settings',
     closeBlockedWords: 'Close blocked words settings',
     closeSettings: 'Close settings',
+    dataSync: 'Data sync',
     deleteBlockedWord: 'Delete blocked word',
     enableBlockedWords: 'Enable homepage blocked words',
     exportBlockedWords: 'Export',
@@ -44,6 +45,29 @@ const appMessages = {
     settings: 'Linux.do settings',
     settingsDesc: 'These options apply to the current Linux.do page.',
     showTopicTags: 'Show homepage topic tags',
+    webdavAutoSync: 'Auto sync',
+    webdavDownload: 'Download now',
+    webdavDownloadFail: 'Download failed',
+    webdavDownloadNotFound: 'Remote settings file not found.',
+    webdavDownloading: 'Downloading...',
+    webdavDownloadSuccess: 'Settings downloaded.',
+    webdavEnable: 'Enable WebDAV sync',
+    webdavLastSync: 'Last sync',
+    webdavMissingUrl: 'Enter a WebDAV URL first.',
+    webdavNeverSynced: 'Never synced',
+    webdavPassword: 'Password',
+    webdavPath: 'Sync path',
+    webdavTestConnection: 'Test connection',
+    webdavTestFail: 'Connection failed',
+    webdavTesting: 'Testing...',
+    webdavTestSuccess: 'Connection successful.',
+    webdavUpload: 'Upload now',
+    webdavUploadFail: 'Upload failed',
+    webdavUploading: 'Uploading...',
+    webdavUploadSuccess: 'Settings uploaded.',
+    webdavUrl: 'WebDAV URL',
+    webdavUrlPlaceholder: 'https://example.com/dav',
+    webdavUsername: 'Username',
   },
   'cmn-CN': {
     addBlockedWord: '添加',
@@ -58,6 +82,7 @@ const appMessages = {
     blockedWordsSettings: '屏蔽词设置',
     closeBlockedWords: '关闭屏蔽词设置',
     closeSettings: '关闭设置',
+    dataSync: '数据同步',
     deleteBlockedWord: '删除屏蔽词',
     enableBlockedWords: '启用首页屏蔽词',
     exportBlockedWords: '导出',
@@ -68,6 +93,29 @@ const appMessages = {
     settings: 'Linux.do 设置',
     settingsDesc: '这些选项会应用到当前 Linux.do 页面。',
     showTopicTags: '显示首页帖子标签',
+    webdavAutoSync: '自动同步',
+    webdavDownload: '立即下载',
+    webdavDownloadFail: '下载失败',
+    webdavDownloadNotFound: '远端设置文件不存在。',
+    webdavDownloading: '下载中...',
+    webdavDownloadSuccess: '已下载设置。',
+    webdavEnable: '启用 WebDAV 同步',
+    webdavLastSync: '上次同步时间',
+    webdavMissingUrl: '请先填写 WebDAV URL。',
+    webdavNeverSynced: '从未同步',
+    webdavPassword: '密码',
+    webdavPath: '同步路径',
+    webdavTestConnection: '测试连接',
+    webdavTestFail: '连接失败',
+    webdavTesting: '测试中...',
+    webdavTestSuccess: '连接成功。',
+    webdavUpload: '立即上传',
+    webdavUploadFail: '上传失败',
+    webdavUploading: '上传中...',
+    webdavUploadSuccess: '已上传设置。',
+    webdavUrl: 'WebDAV 地址',
+    webdavUrlPlaceholder: 'https://example.com/dav',
+    webdavUsername: '用户名',
   },
   'cmn-TW': {
     addBlockedWord: '新增',
@@ -82,6 +130,7 @@ const appMessages = {
     blockedWordsSettings: '屏蔽詞設定',
     closeBlockedWords: '關閉屏蔽詞設定',
     closeSettings: '關閉設定',
+    dataSync: '資料同步',
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
     exportBlockedWords: '匯出',
@@ -92,6 +141,29 @@ const appMessages = {
     settings: 'Linux.do 設定',
     settingsDesc: '這些選項會套用到目前的 Linux.do 頁面。',
     showTopicTags: '顯示首頁話題標籤',
+    webdavAutoSync: '自動同步',
+    webdavDownload: '立即下載',
+    webdavDownloadFail: '下載失敗',
+    webdavDownloadNotFound: '遠端設定檔不存在。',
+    webdavDownloading: '下載中...',
+    webdavDownloadSuccess: '已下載設定。',
+    webdavEnable: '啟用 WebDAV 同步',
+    webdavLastSync: '上次同步時間',
+    webdavMissingUrl: '請先填寫 WebDAV URL。',
+    webdavNeverSynced: '從未同步',
+    webdavPassword: '密碼',
+    webdavPath: '同步路徑',
+    webdavTestConnection: '測試連線',
+    webdavTestFail: '連線失敗',
+    webdavTesting: '測試中...',
+    webdavTestSuccess: '連線成功。',
+    webdavUpload: '立即上傳',
+    webdavUploadFail: '上傳失敗',
+    webdavUploading: '上傳中...',
+    webdavUploadSuccess: '已上傳設定。',
+    webdavUrl: 'WebDAV 位址',
+    webdavUrlPlaceholder: 'https://example.com/dav',
+    webdavUsername: '使用者名稱',
   },
   jyut: {
     addBlockedWord: '加入',
@@ -106,6 +178,7 @@ const appMessages = {
     blockedWordsSettings: '屏蔽詞設定',
     closeBlockedWords: '閂屏蔽詞設定',
     closeSettings: '關閉設定',
+    dataSync: '資料同步',
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
     exportBlockedWords: '匯出',
@@ -116,6 +189,29 @@ const appMessages = {
     settings: 'Linux.do 設定',
     settingsDesc: '呢啲選項會套用喺而家嘅 Linux.do 頁面。',
     showTopicTags: '顯示首頁話題標籤',
+    webdavAutoSync: '自動同步',
+    webdavDownload: '立即下載',
+    webdavDownloadFail: '下載失敗',
+    webdavDownloadNotFound: '遠端設定檔搵唔到。',
+    webdavDownloading: '下載緊...',
+    webdavDownloadSuccess: '已下載設定。',
+    webdavEnable: '啟用 WebDAV 同步',
+    webdavLastSync: '上次同步時間',
+    webdavMissingUrl: '請先填 WebDAV URL。',
+    webdavNeverSynced: '從未同步',
+    webdavPassword: '密碼',
+    webdavPath: '同步路徑',
+    webdavTestConnection: '測試連線',
+    webdavTestFail: '連線失敗',
+    webdavTesting: '測試緊...',
+    webdavTestSuccess: '連線成功。',
+    webdavUpload: '立即上傳',
+    webdavUploadFail: '上傳失敗',
+    webdavUploading: '上傳緊...',
+    webdavUploadSuccess: '已上傳設定。',
+    webdavUrl: 'WebDAV 位址',
+    webdavUrlPlaceholder: 'https://example.com/dav',
+    webdavUsername: '用戶名',
   },
 } as const
 
@@ -130,11 +226,22 @@ const blockedWordInput = ref<string>('')
 const blockedWordsStatusMessage = ref<string>('')
 const blockedWordsImportInput = ref<HTMLInputElement | null>(null)
 const showBlockedWordsDialog = ref<boolean>(false)
+const webdavTesting = ref<boolean>(false)
+const webdavUploading = ref<boolean>(false)
+const webdavDownloading = ref<boolean>(false)
+const webdavStatusMessage = ref<string>('')
 const isPageAtTop = ref<boolean>(true)
 const isHostDark = ref(false)
 let hostSchemeObserver: MutationObserver | null = null
 let hostSchemeMediaQuery: MediaQueryList | null = null
 let hostSchemeMediaHandler: (() => void) | null = null
+
+const webdavLastSyncText = computed(() => {
+  if (!settings.value.webdavLastSyncTime)
+    return appLabels.webdavNeverSynced
+
+  return `${appLabels.webdavLastSync}: ${new Date(settings.value.webdavLastSyncTime).toLocaleString()}`
+})
 
 function updateHostDarkScheme() {
   isHostDark.value = detectLinuxDoColorScheme(document) === 'dark'
@@ -244,6 +351,75 @@ function handleBlockedWordsExport() {
   anchor.download = 'linux-do-homepage-blocked-words.json'
   anchor.click()
   URL.revokeObjectURL(url)
+}
+
+function getWebdavFailureMessage(label: string, error: string | undefined): string {
+  return `${label}: ${error || 'unknown'}`
+}
+
+async function handleWebdavTest() {
+  if (!settings.value.webdavUrl) {
+    webdavStatusMessage.value = appLabels.webdavMissingUrl
+    return
+  }
+
+  webdavTesting.value = true
+  webdavStatusMessage.value = ''
+  try {
+    const result = await webdavTest({
+      url: settings.value.webdavUrl,
+      username: settings.value.webdavUsername,
+      password: settings.value.webdavPassword,
+      path: settings.value.webdavPath,
+    })
+    webdavStatusMessage.value = result.ok
+      ? appLabels.webdavTestSuccess
+      : getWebdavFailureMessage(appLabels.webdavTestFail, result.error || `HTTP ${result.status}`)
+  }
+  finally {
+    webdavTesting.value = false
+  }
+}
+
+async function handleWebdavUpload() {
+  if (!settings.value.webdavUrl) {
+    webdavStatusMessage.value = appLabels.webdavMissingUrl
+    return
+  }
+
+  webdavUploading.value = true
+  webdavStatusMessage.value = ''
+  try {
+    const result = await uploadSettings()
+    webdavStatusMessage.value = result.ok
+      ? appLabels.webdavUploadSuccess
+      : getWebdavFailureMessage(appLabels.webdavUploadFail, result.error)
+  }
+  finally {
+    webdavUploading.value = false
+  }
+}
+
+async function handleWebdavDownload() {
+  if (!settings.value.webdavUrl) {
+    webdavStatusMessage.value = appLabels.webdavMissingUrl
+    return
+  }
+
+  webdavDownloading.value = true
+  webdavStatusMessage.value = ''
+  try {
+    const result = await downloadSettings()
+    if (result.ok)
+      webdavStatusMessage.value = appLabels.webdavDownloadSuccess
+    else if (result.error === 'remote_not_found')
+      webdavStatusMessage.value = appLabels.webdavDownloadNotFound
+    else
+      webdavStatusMessage.value = getWebdavFailureMessage(appLabels.webdavDownloadFail, result.error)
+  }
+  finally {
+    webdavDownloading.value = false
+  }
 }
 
 function updateHomePageBlockedWords(words: string[]): boolean {
@@ -518,6 +694,74 @@ onBeforeUnmount(() => {
       >
         {{ appLabels.blockedWordsSettings }}
       </button>
+
+      <div class="linux-do-settings-webdav-section">
+        <label class="linux-do-settings-option">
+          <input v-model="settings.webdavEnabled" type="checkbox">
+          <span>{{ appLabels.webdavEnable }}</span>
+        </label>
+
+        <template v-if="settings.webdavEnabled">
+          <label class="linux-do-settings-field">
+            <span>{{ appLabels.webdavUrl }}</span>
+            <input v-model="settings.webdavUrl" type="url" :placeholder="appLabels.webdavUrlPlaceholder">
+          </label>
+
+          <label class="linux-do-settings-field">
+            <span>{{ appLabels.webdavUsername }}</span>
+            <input v-model="settings.webdavUsername" type="text">
+          </label>
+
+          <label class="linux-do-settings-field">
+            <span>{{ appLabels.webdavPassword }}</span>
+            <input v-model="settings.webdavPassword" type="password">
+          </label>
+
+          <label class="linux-do-settings-field">
+            <span>{{ appLabels.webdavPath }}</span>
+            <input v-model="settings.webdavPath" type="text">
+          </label>
+
+          <label class="linux-do-settings-option">
+            <input v-model="settings.webdavAutoSync" type="checkbox">
+            <span>{{ appLabels.webdavAutoSync }}</span>
+          </label>
+
+          <div class="linux-do-settings-blocklist-actions">
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              :disabled="webdavTesting"
+              @click="handleWebdavTest"
+            >
+              {{ webdavTesting ? appLabels.webdavTesting : appLabels.webdavTestConnection }}
+            </button>
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              :disabled="webdavUploading"
+              @click="handleWebdavUpload"
+            >
+              {{ webdavUploading ? appLabels.webdavUploading : appLabels.webdavUpload }}
+            </button>
+            <button
+              class="linux-do-settings-secondary-button"
+              type="button"
+              :disabled="webdavDownloading"
+              @click="handleWebdavDownload"
+            >
+              {{ webdavDownloading ? appLabels.webdavDownloading : appLabels.webdavDownload }}
+            </button>
+          </div>
+
+          <p class="linux-do-settings-hint">
+            {{ webdavLastSyncText }}
+          </p>
+          <p v-if="webdavStatusMessage" class="linux-do-settings-status" role="status" aria-live="polite">
+            {{ webdavStatusMessage }}
+          </p>
+        </template>
+      </div>
     </section>
 
     <div

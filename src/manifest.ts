@@ -4,6 +4,13 @@ import type { Manifest } from 'webextension-polyfill'
 import type PkgType from '../package.json'
 import { isDev, isFirefox, isSafari, port, r } from '../scripts/utils'
 
+const CHROME_EXTENSION_KEY = [
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1lUdX1j/0VNjIiCqpITrWFWsBJlqv149kkcIBfbYL++XAEWyxaYy',
+  'CgP/sydSmquU2aAtLC8wMXjINO2O9vgTFwClFTfgkXs/Y410v7Fw/ZIFrpA2+5IUh9+TooUWLSdy+MU9Sdr4wqT0tWZ4vU7L',
+  'UOKw6NkoJOj89wvilZeM+/hs4vPCR1DnE0Wb5gWUSKZEbLsmajO0ckBy2uFe4xUo0zPr6JGY1womPu9SiTtsGfbXG8o86K9l',
+  'UfEKwu+RCiXDiBsGuGbcgUP6mORREqVTxFnI6dHG++LbG7YHY4/bhJo8j1rCv/RI5EFhJI7CebfR5evny8ryUmXVmbPH/KtgfQIDAQAB',
+].join('')
+
 export function formatManifestVersion(version: string): string {
   return version.replace(/^(\d+\.\d+)\.0$/, '$1')
 }
@@ -13,7 +20,7 @@ export async function getManifest() {
 
   // update this file to update this manifest.json
   // can also be conditional based on your need
-  const manifest: Manifest.WebExtensionManifest = {
+  const manifest: Manifest.WebExtensionManifest & { key?: string } = {
     manifest_version: 3,
     name: `${pkg.displayName || pkg.name}${isDev ? ' Dev' : ''}`,
     version: formatManifestVersion(pkg.version),
@@ -76,6 +83,9 @@ export async function getManifest() {
 
   if (isDev)
     manifest.permissions?.push('webNavigation')
+
+  if (!isFirefox)
+    manifest.key = CHROME_EXTENSION_KEY
 
   if (isFirefox) {
     manifest.browser_specific_settings = {
