@@ -1111,6 +1111,44 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
+.linux-do-settings-webdav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bew-border-color);
+}
+
+.linux-do-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--bew-text-2);
+}
+
+.linux-do-settings-field span {
+  line-height: 1.4;
+}
+
+.linux-do-settings-field input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  color: var(--bew-text-1);
+  background: var(--bew-fill-1);
+  border: 1px solid var(--bew-border-color);
+  border-radius: 8px;
+}
+
+.linux-do-settings-field input:focus-visible {
+  border-color: var(--bew-theme-color);
+  outline: none;
+}
+
 .linux-do-settings-blocklist-input-row {
   display: flex;
   gap: 8px;
