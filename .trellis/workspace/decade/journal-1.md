@@ -530,3 +530,39 @@ App.vue 浮动刷新按钮在 topic list 页改为只刷新帖子列表（点击
 ### Next Steps
 
 - None - task complete
+
+## Session 17: WebDAV 设置同步与 v0.3.0 发布
+
+**Date**: 2026-07-03
+**Task**: WebDAV 设置同步与 v0.3.0 发布
+**Branch**: `main`
+
+### Summary
+
+完成屏蔽词 storage.sync 持久化、WebDAV 全量设置同步、linux.do 内联设置接入、WebDAV background 代理与 v0.3.0 覆盖发布。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4af95df8` | (see git log) |
+| `2a312fa5` | (see git log) |
+| `9427fc7b` | (see git log) |
+| `43e3d850` | (see git log) |
+| `f28a0b1f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
