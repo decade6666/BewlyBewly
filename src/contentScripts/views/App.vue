@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { resolveScrollAction } from '~/contentScripts/scrollAction'
-import { settings } from '~/logic'
+import { BLOCKED_WORDS_MAX_BYTES, blockedWords, settings } from '~/logic'
 import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, refreshLinuxDoTopicListInPlace, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
@@ -29,6 +29,7 @@ const appMessages = {
     blockedWordsImportInvalid: 'Import failed. Use a JSON string array.',
     blockedWordsImportSuccess: 'Blocked words imported.',
     blockedWordsPlaceholder: 'Keyword or /pattern/',
+    blockedWordsQuotaExceeded: 'Blocked words list is too large to sync. Remove some entries.',
     blockedWordsRegexHint: 'Plain text uses case-insensitive includes. Use /pattern/ for regex.',
     blockedWordsSettings: 'Blocked words settings',
     closeBlockedWords: 'Close blocked words settings',
@@ -52,6 +53,7 @@ const appMessages = {
     blockedWordsImportInvalid: '导入失败，请使用 JSON 字符串数组。',
     blockedWordsImportSuccess: '已导入屏蔽词。',
     blockedWordsPlaceholder: '关键词或 /pattern/',
+    blockedWordsQuotaExceeded: '屏蔽词列表过大，无法同步。请删除部分词条。',
     blockedWordsRegexHint: '普通文本使用忽略大小写的包含匹配；使用 /pattern/ 可启用正则。',
     blockedWordsSettings: '屏蔽词设置',
     closeBlockedWords: '关闭屏蔽词设置',
@@ -75,6 +77,7 @@ const appMessages = {
     blockedWordsImportInvalid: '匯入失敗，請使用 JSON 字串陣列。',
     blockedWordsImportSuccess: '已匯入屏蔽詞。',
     blockedWordsPlaceholder: '關鍵詞或 /pattern/',
+    blockedWordsQuotaExceeded: '屏蔽詞清單過大，無法同步。請刪除部分詞條。',
     blockedWordsRegexHint: '普通文字使用忽略大小寫的包含匹配；使用 /pattern/ 可啟用正則。',
     blockedWordsSettings: '屏蔽詞設定',
     closeBlockedWords: '關閉屏蔽詞設定',
@@ -98,6 +101,7 @@ const appMessages = {
     blockedWordsImportInvalid: '匯入失敗，請用 JSON 字串陣列。',
     blockedWordsImportSuccess: '已匯入屏蔽詞。',
     blockedWordsPlaceholder: '關鍵詞或 /pattern/',
+    blockedWordsQuotaExceeded: '屏蔽詞清單太大，同步唔到。請刪走部分詞條。',
     blockedWordsRegexHint: '普通文字會忽略大小寫做包含匹配；用 /pattern/ 可以啟用正則。',
     blockedWordsSettings: '屏蔽詞設定',
     closeBlockedWords: '閂屏蔽詞設定',
@@ -180,15 +184,20 @@ function addBlockedWord() {
   if (!blockedWord)
     return
 
-  updateHomePageBlockedWords([...settings.value.homePageBlockedWords, blockedWord])
+  if (!updateHomePageBlockedWords([...blockedWords.value.words, blockedWord]))
+    return
+
   blockedWordInput.value = ''
   blockedWordsStatusMessage.value = ''
 }
 
 function deleteBlockedWord(index: number) {
-  updateHomePageBlockedWords(
-    settings.value.homePageBlockedWords.filter((_, currentIndex) => currentIndex !== index),
-  )
+  if (!updateHomePageBlockedWords(
+    blockedWords.value.words.filter((_, currentIndex) => currentIndex !== index),
+  )) {
+    return
+  }
+
   blockedWordsStatusMessage.value = ''
 }
 
@@ -211,7 +220,9 @@ async function handleBlockedWordsImport(event: Event) {
     if (!importedWords)
       throw new Error('Invalid blocked words import format')
 
-    updateHomePageBlockedWords(importedWords)
+    if (!updateHomePageBlockedWords(importedWords))
+      return
+
     blockedWordsStatusMessage.value = appLabels.blockedWordsImportSuccess
   }
   catch {
@@ -220,12 +231,12 @@ async function handleBlockedWordsImport(event: Event) {
 }
 
 function handleBlockedWordsExport() {
-  const blockedWords = settings.value.homePageBlockedWords
+  const exportedWords = blockedWords.value.words
 
-  if (blockedWords.length === 0)
+  if (exportedWords.length === 0)
     return
 
-  const blob = new Blob([JSON.stringify(blockedWords, null, 2)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(exportedWords, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
 
@@ -235,11 +246,23 @@ function handleBlockedWordsExport() {
   URL.revokeObjectURL(url)
 }
 
-function updateHomePageBlockedWords(words: string[]) {
-  settings.value = {
-    ...settings.value,
-    homePageBlockedWords: dedupeBlockedWords(words.map(normalizeBlockedWord).filter(Boolean)),
+function updateHomePageBlockedWords(words: string[]): boolean {
+  const candidate = dedupeBlockedWords(words.map(normalizeBlockedWord).filter(Boolean))
+  const candidateBytes = new TextEncoder().encode(JSON.stringify({
+    enabled: blockedWords.value.enabled,
+    words: candidate,
+  })).length
+
+  if (candidateBytes > BLOCKED_WORDS_MAX_BYTES) {
+    blockedWordsStatusMessage.value = appLabels.blockedWordsQuotaExceeded
+    return false
   }
+
+  blockedWords.value = {
+    ...blockedWords.value,
+    words: candidate,
+  }
+  return true
 }
 
 function parseImportedBlockedWords(value: unknown): string[] | null {
@@ -484,7 +507,7 @@ onBeforeUnmount(() => {
       </label>
 
       <label class="linux-do-settings-option">
-        <input v-model="settings.enableHomePageBlockedWords" type="checkbox">
+        <input v-model="blockedWords.enabled" type="checkbox">
         <span>{{ appLabels.enableBlockedWords }}</span>
       </label>
 
@@ -561,15 +584,15 @@ onBeforeUnmount(() => {
             <button
               class="linux-do-settings-secondary-button"
               type="button"
-              :disabled="settings.homePageBlockedWords.length === 0"
+              :disabled="blockedWords.words.length === 0"
               @click="handleBlockedWordsExport"
             >
               {{ appLabels.exportBlockedWords }}
             </button>
           </div>
 
-          <ul v-if="settings.homePageBlockedWords.length > 0" class="linux-do-settings-blocked-words-list">
-            <li v-for="(word, index) in settings.homePageBlockedWords" :key="`${word}-${index}`">
+          <ul v-if="blockedWords.words.length > 0" class="linux-do-settings-blocked-words-list">
+            <li v-for="(word, index) in blockedWords.words" :key="`${word}-${index}`">
               <span>{{ word }}</span>
               <button
                 class="linux-do-settings-icon-button"

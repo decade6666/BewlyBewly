@@ -66,6 +66,7 @@ settings:
   menu_search_page: Search Page
   menu_home: Home
   menu_compatibility: Compatibility
+  menu_data_sync: Data Sync
   menu_about: About
 
   # Settings group
@@ -275,6 +276,32 @@ settings:
   home_tabs_adjustment: Tabs adjustment
   home_tabs_adjustment_desc: The first activated tab is the default page.
   always_show_tabs_on_home_page: Always show tabs on the home page
+
+  # Data Sync
+  group_webdav: WebDAV Sync
+  group_webdav_desc: Sync your settings across browsers and devices via WebDAV.
+  webdav_enable: Enable WebDAV sync
+  webdav_url: WebDAV server URL
+  webdav_url_placeholder: 'https://dav.example.com/remote.php/dav/files/user'
+  webdav_username: Username
+  webdav_password: Password
+  webdav_path: Remote file path
+  webdav_auto_sync: Auto sync
+  webdav_auto_sync_desc: Automatically upload settings when changed and download on startup.
+  webdav_test_connection: Test Connection
+  webdav_test_success: Connection successful!
+  webdav_test_fail: 'Connection failed: {error}'
+  webdav_upload: Upload Settings
+  webdav_download: Download Settings
+  webdav_uploading: Uploading...
+  webdav_downloading: Downloading...
+  webdav_upload_success: Settings uploaded successfully.
+  webdav_upload_fail: 'Upload failed: {error}'
+  webdav_download_success: Settings downloaded and applied.
+  webdav_download_fail: 'Download failed: {error}'
+  webdav_download_not_found: No remote settings file found. Upload first.
+  webdav_last_sync: 'Last sync: {time}'
+  webdav_never_synced: Never synced
 
   # Compatibility
   # Common

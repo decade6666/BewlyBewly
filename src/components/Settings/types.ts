@@ -5,6 +5,7 @@ export enum MenuType {
   BewlyPages = 'BewlyPages',
   Compatibility = 'Compatibility',
   BilibiliSettings = 'BilibiliSettings',
+  DataSync = 'DataSync',
   About = 'About',
 }
 

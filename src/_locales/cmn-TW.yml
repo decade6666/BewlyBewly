@@ -66,6 +66,7 @@ settings:
   menu_home: 首頁
   menu_search_page: 搜尋頁
   menu_about: 關於
+  menu_data_sync: 資料同步
   menu_compatibility: 相容性
 
   # Settings group
@@ -268,6 +269,32 @@ settings:
   home_tabs_adjustment: 標籤欄調整
   home_tabs_adjustment_desc: 第一個啓用的標籤項目調整頁面將是起始頁面。
   always_show_tabs_on_home_page: 總是顯示首頁標籤欄
+
+  # Data Sync
+  group_webdav: WebDAV 同步
+  group_webdav_desc: 透過 WebDAV 在多個瀏覽器和裝置間同步設定。
+  webdav_enable: 啟用 WebDAV 同步
+  webdav_url: WebDAV 伺服器位址
+  webdav_url_placeholder: 'https://dav.example.com/remote.php/dav/files/user'
+  webdav_username: 使用者名稱
+  webdav_password: 密碼
+  webdav_path: 遠端檔案路徑
+  webdav_auto_sync: 自動同步
+  webdav_auto_sync_desc: 設定變更時自動上傳，啟動時自動下載。
+  webdav_test_connection: 測試連線
+  webdav_test_success: 連線成功！
+  webdav_test_fail: '連線失敗：{error}'
+  webdav_upload: 上傳設定
+  webdav_download: 下載設定
+  webdav_uploading: 上傳中...
+  webdav_downloading: 下載中...
+  webdav_upload_success: 設定上傳成功。
+  webdav_upload_fail: '上傳失敗：{error}'
+  webdav_download_success: 設定已下載並套用。
+  webdav_download_fail: '下載失敗：{error}'
+  webdav_download_not_found: 遠端未找到設定檔案，請先上傳。
+  webdav_last_sync: '上次同步：{time}'
+  webdav_never_synced: 從未同步
 
   # Compatibility
   # Common

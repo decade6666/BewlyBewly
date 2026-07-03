@@ -1,6 +1,7 @@
 import { storage } from 'webextension-polyfill'
 
 import { useStorageLocal } from '~/composables/useStorageLocal'
+import { useStorageSync } from '~/composables/useStorageSync'
 import type { wallpaperItem } from '~/constants/imgs'
 import type { HomeSubPage } from '~/contentScripts/views/Home/types'
 import type { AppPage } from '~/enums/appEnums'
@@ -112,13 +113,21 @@ export interface Settings {
   searchPageModeWallpaperFixed: boolean
   hideHomePagePinnedTopics: boolean
   showHomePageTopicTags: boolean
-  enableHomePageBlockedWords: boolean
-  homePageBlockedWords: string[]
 
   adaptToOtherPageStyles: boolean
   showTopBar: boolean
   useOriginalBilibiliTopBar: boolean
   useOriginalBilibiliHomepage: boolean
+
+  // WebDAV Sync
+  webdavEnabled: boolean
+  webdavUrl: string
+  webdavUsername: string
+  webdavPassword: string
+  webdavPath: string
+  webdavAutoSync: boolean
+  webdavLastSyncTime: number
+  webdavLocalModifiedTime: number
 }
 
 export const originalSettings: Settings = {
@@ -220,13 +229,21 @@ export const originalSettings: Settings = {
   searchPageModeWallpaperFixed: false,
   hideHomePagePinnedTopics: true,
   showHomePageTopicTags: true,
-  enableHomePageBlockedWords: false,
-  homePageBlockedWords: [],
 
   adaptToOtherPageStyles: true,
   showTopBar: true,
   useOriginalBilibiliTopBar: false,
   useOriginalBilibiliHomepage: false,
+
+  // WebDAV Sync
+  webdavEnabled: false,
+  webdavUrl: '',
+  webdavUsername: '',
+  webdavPassword: '',
+  webdavPath: '/bewly/settings.json',
+  webdavAutoSync: false,
+  webdavLastSyncTime: 0,
+  webdavLocalModifiedTime: 0,
 }
 
 export async function cleanupLegacySettingsStorage(): Promise<void> {
@@ -247,6 +264,67 @@ export async function cleanupLegacySettingsStorage(): Promise<void> {
 export const settings = useStorageLocal(SETTINGS_STORAGE_KEY, ref<Settings>(originalSettings), { mergeDefaults: true })
 
 void cleanupLegacySettingsStorage()
+
+/**
+ * Homepage blocked words live in `storage.sync` (not `storage.local`) so they
+ * survive extension uninstall/reinstall and roam across devices via the
+ * browser's account sync. Kept as a small isolated object to stay well within
+ * the `storage.sync` per-item quota.
+ */
+export interface BlockedWordsState {
+  enabled: boolean
+  words: string[]
+}
+
+export const BLOCKED_WORDS_MAX_BYTES = 7000
+
+const BLOCKED_WORDS_STORAGE_KEY = 'blockedWords'
+const BLOCKED_WORDS_MIGRATION_FLAG = 'blockedWordsMigratedToSync'
+
+export const blockedWords = useStorageSync(
+  BLOCKED_WORDS_STORAGE_KEY,
+  ref<BlockedWordsState>({ enabled: false, words: [] }),
+  { mergeDefaults: true },
+)
+
+/**
+ * One-time migration: users upgrading from a version that stored blocked words
+ * inside local `settings` keep their list by copying it into `storage.sync`.
+ * Runs once (guarded by a local flag) and never overwrites existing sync data
+ * that may already have arrived from another device.
+ */
+export async function migrateBlockedWordsToSync(): Promise<void> {
+  try {
+    const alreadyMigrated = (await storage.local.get(BLOCKED_WORDS_MIGRATION_FLAG))[BLOCKED_WORDS_MIGRATION_FLAG]
+    if (alreadyMigrated)
+      return
+
+    const storedSettings = (await storage.local.get(SETTINGS_STORAGE_KEY))[SETTINGS_STORAGE_KEY]
+    const parsedSettings = typeof storedSettings === 'string' ? JSON.parse(storedSettings) : storedSettings
+    const legacyWords: string[] = Array.isArray(parsedSettings?.homePageBlockedWords) ? parsedSettings.homePageBlockedWords : []
+    const legacyEnabled = Boolean(parsedSettings?.enableHomePageBlockedWords)
+
+    if (legacyWords.length > 0 || legacyEnabled) {
+      const existing = (await storage.sync.get(BLOCKED_WORDS_STORAGE_KEY))[BLOCKED_WORDS_STORAGE_KEY]
+      const parsedExisting = typeof existing === 'string' ? JSON.parse(existing) : existing
+      const syncHasWords = Array.isArray(parsedExisting?.words) && parsedExisting.words.length > 0
+      const syncIsEmpty = !parsedExisting || (!syncHasWords && !parsedExisting.enabled)
+
+      if (syncIsEmpty) {
+        await storage.sync.set({
+          [BLOCKED_WORDS_STORAGE_KEY]: JSON.stringify({ enabled: legacyEnabled, words: legacyWords }),
+        })
+      }
+    }
+
+    await storage.local.set({ [BLOCKED_WORDS_MIGRATION_FLAG]: true })
+  }
+  catch (error) {
+    console.error('Failed to migrate blocked words to sync storage:', error)
+  }
+}
+
+void migrateBlockedWordsToSync()
 
 watch(
   () => settings.value,

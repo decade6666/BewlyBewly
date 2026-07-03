@@ -66,6 +66,7 @@ settings:
   menu_search_page: 搜索页
   menu_home: 首页
   menu_compatibility: 兼容性
+  menu_data_sync: 数据同步
   menu_about: 关于
 
   # Settings group
@@ -270,6 +271,32 @@ settings:
   home_tabs_adjustment: 标签栏调整
   home_tabs_adjustment_desc: 第一个激活的标签项是默认界面
   always_show_tabs_on_home_page: 总是显示首页标签栏
+
+  # Data Sync
+  group_webdav: WebDAV 同步
+  group_webdav_desc: 通过 WebDAV 在多个浏览器和设备间同步设置。
+  webdav_enable: 启用 WebDAV 同步
+  webdav_url: WebDAV 服务器地址
+  webdav_url_placeholder: 'https://dav.example.com/remote.php/dav/files/user'
+  webdav_username: 用户名
+  webdav_password: 密码
+  webdav_path: 远程文件路径
+  webdav_auto_sync: 自动同步
+  webdav_auto_sync_desc: 设置变更时自动上传，启动时自动下载。
+  webdav_test_connection: 测试连接
+  webdav_test_success: 连接成功！
+  webdav_test_fail: '连接失败：{error}'
+  webdav_upload: 上传设置
+  webdav_download: 下载设置
+  webdav_uploading: 上传中...
+  webdav_downloading: 下载中...
+  webdav_upload_success: 设置上传成功。
+  webdav_upload_fail: '上传失败：{error}'
+  webdav_download_success: 设置已下载并应用。
+  webdav_download_fail: '下载失败：{error}'
+  webdav_download_not_found: 远程未找到设置文件，请先上传。
+  webdav_last_sync: '上次同步：{time}'
+  webdav_never_synced: 从未同步
 
   # Compatibility
   # Common
