@@ -1,6 +1,6 @@
 ---
 name: trellis-check
-description: "Comprehensive quality verification: spec compliance, lint, type-check, tests, cross-layer data flow, code reuse, and consistency checks. Use when code is written and needs quality verification, before committing changes, or to catch context drift during long sessions."
+description: "全面质量验证：spec 合规性、lint、类型检查、测试、跨层数据流、代码复用和一致性检查。适用于代码编写完成需要质量验证、提交前检查，或长会话中捕捉上下文漂移时。"
 ---
 
 # Code Quality Check
@@ -16,7 +16,13 @@ git diff --name-only HEAD
 git status
 ```
 
-## Step 2: Read Applicable Specs
+## Step 2: Read Task Artifacts and Applicable Specs
+
+Read the current task artifacts in order:
+
+- `prd.md`
+- `design.md` if present
+- `implement.md` if present
 
 ```bash
 python3 ./.trellis/scripts/get_context.py --mode packages
