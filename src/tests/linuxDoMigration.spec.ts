@@ -41,7 +41,10 @@ describe('linux.do migration manifest and package metadata', () => {
     expect(manifest.permissions).not.toContain('webRequestBlocking')
     expect(manifest.permissions).not.toContain('cookies')
     expect(manifest).not.toHaveProperty('declarative_net_request')
-    expect(manifest.host_permissions).toEqual(['https://linux.do/*'])
+    // Content scripts stay scoped to linux.do, but the background worker needs
+    // <all_urls> so WebDAV sync can reach any user-configured server without
+    // hitting the content-script origin's CORS policy.
+    expect(manifest.host_permissions).toEqual(['https://linux.do/*', '<all_urls>'])
     expect(contentScriptMatches).toEqual(['https://linux.do/*'])
     expect(manifest.web_accessible_resources).toEqual([
       {
@@ -1304,7 +1307,7 @@ describe('linux.do content script and drawer boundaries', () => {
 
     expect(appSource).toContain('downloadSettings')
     expect(appSource).toContain('uploadSettings')
-    expect(appSource).toContain('webdavTest')
+    expect(appSource).toContain('webdavTestViaBackground')
     expect(appSource).toContain('settings.webdavEnabled')
     expect(appSource).toContain('settings.webdavUrl')
     expect(appSource).toContain('settings.webdavUsername')
@@ -1328,6 +1331,42 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(manifestSource).toContain('const CHROME_EXTENSION_KEY =')
     expect(manifestSource).toContain('if (!isFirefox)')
     expect(manifestSource).toContain('manifest.key = CHROME_EXTENSION_KEY')
+  })
+
+  it('runs WebDAV network requests in the background to avoid content-script CORS', async () => {
+    const webdavSource = await readFile(resolve('src/logic/webdav.ts'), 'utf8')
+    const settingsSyncSource = await readFile(resolve('src/logic/settingsSync.ts'), 'utf8')
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const dataSyncSource = await readFile(resolve('src/components/Settings/DataSync/DataSync.vue'), 'utf8')
+    const backgroundSource = await readFile(resolve('src/background/index.ts'), 'utf8')
+    const webdavListenerSource = await readFile(resolve('src/background/messageListeners/webdav.ts'), 'utf8')
+    const manifestSource = await readFile(resolve('src/manifest.ts'), 'utf8')
+
+    // The content-script side must never call the raw fetch-based client directly;
+    // it goes through the background via runtime messaging.
+    expect(webdavSource).toContain('enum WEBDAV_MESSAGE')
+    expect(webdavSource).toContain('browser.runtime.sendMessage')
+    expect(webdavSource).toContain('export function webdavTestViaBackground')
+    expect(webdavSource).toContain('export function webdavUploadViaBackground')
+    expect(webdavSource).toContain('export function webdavDownloadViaBackground')
+
+    expect(settingsSyncSource).toContain('webdavUploadViaBackground')
+    expect(settingsSyncSource).toContain('webdavDownloadViaBackground')
+    expect(settingsSyncSource).not.toMatch(/\bwebdavUpload\(/)
+    expect(settingsSyncSource).not.toMatch(/\bwebdavDownload\(/)
+
+    expect(appSource).toContain('webdavTestViaBackground')
+    expect(dataSyncSource).toContain('webdavTestViaBackground')
+
+    // The background wires up the WebDAV listener and performs the real fetch.
+    expect(backgroundSource).toContain('setupWebdavMsgLstnrs')
+    expect(webdavListenerSource).toContain('webdavTest')
+    expect(webdavListenerSource).toContain('webdavUpload')
+    expect(webdavListenerSource).toContain('webdavDownload')
+    expect(webdavListenerSource).toContain('browser.runtime.onMessage.addListener')
+
+    // Background must be allowed to reach arbitrary WebDAV origins.
+    expect(manifestSource).toContain('\'<all_urls>\'')
   })
 
   it('renders the full-screen wrapper only when the iframe drawer is open', async () => {

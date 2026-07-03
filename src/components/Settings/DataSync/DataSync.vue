@@ -2,7 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 
-import { downloadSettings, settings, uploadSettings, webdavTest } from '~/logic'
+import { downloadSettings, settings, uploadSettings, webdavTestViaBackground } from '~/logic'
 
 import SettingsItem from '../components/SettingsItem.vue'
 import SettingsItemGroup from '../components/SettingsItemGroup.vue'
@@ -25,7 +25,7 @@ async function handleTest() {
     return
   testing.value = true
   try {
-    const result = await webdavTest({
+    const result = await webdavTestViaBackground({
       url: settings.value.webdavUrl,
       username: settings.value.webdavUsername,
       password: settings.value.webdavPassword,

@@ -52,6 +52,9 @@ export async function getManifest() {
     ],
     host_permissions: [
       'https://linux.do/*',
+      // WebDAV sync runs in the background/service worker and must be able to
+      // reach any user-configured WebDAV server, so allow all origins here.
+      '<all_urls>',
     ],
     content_scripts: [
       {

@@ -1,7 +1,7 @@
 import type { BlockedWordsState, Settings } from './storage'
 import { blockedWords, originalSettings, settings } from './storage'
 import type { WebDavConfig } from './webdav'
-import { webdavDownload, webdavUpload } from './webdav'
+import { webdavDownloadViaBackground, webdavUploadViaBackground } from './webdav'
 
 interface SyncEnvelope {
   version: 1
@@ -83,7 +83,7 @@ export async function uploadSettings(): Promise<SyncResult> {
     settings: syncState.settings,
     blockedWords: syncState.blockedWords,
   }
-  const result = await webdavUpload(config, JSON.stringify(envelope, null, 2))
+  const result = await webdavUploadViaBackground(config, JSON.stringify(envelope, null, 2))
   if (result.ok) {
     lastSyncedSnapshot = buildSyncSnapshot(syncState)
     settings.value.webdavLastSyncTime = envelope.timestamp
@@ -93,7 +93,7 @@ export async function uploadSettings(): Promise<SyncResult> {
 
 export async function downloadSettings(options: { onlyIfNewer?: boolean } = {}): Promise<SyncResult> {
   const config = getWebdavConfig()
-  const result = await webdavDownload(config)
+  const result = await webdavDownloadViaBackground(config)
 
   if (!result.ok) {
     if (result.error === 'not_found')

@@ -4,7 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import IframeDrawer from '~/components/IframeDrawer.vue'
 import { BEWLY_MOUNTED, LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
 import { resolveScrollAction } from '~/contentScripts/scrollAction'
-import { BLOCKED_WORDS_MAX_BYTES, blockedWords, downloadSettings, settings, uploadSettings, webdavTest } from '~/logic'
+import { BLOCKED_WORDS_MAX_BYTES, blockedWords, downloadSettings, settings, uploadSettings, webdavTestViaBackground } from '~/logic'
 import { detectLinuxDoColorScheme, findLinuxDoTopicLink, isLinuxDoTopicListPage, refreshLinuxDoTopicListInPlace, setLinuxDoDrawerHostScrollLock } from '~/sites/linuxDo'
 
 const DRAWER_HISTORY_STATE_KEY = '__bewlyLinuxDoDrawer'
@@ -366,7 +366,7 @@ async function handleWebdavTest() {
   webdavTesting.value = true
   webdavStatusMessage.value = ''
   try {
-    const result = await webdavTest({
+    const result = await webdavTestViaBackground({
       url: settings.value.webdavUrl,
       username: settings.value.webdavUsername,
       password: settings.value.webdavPassword,

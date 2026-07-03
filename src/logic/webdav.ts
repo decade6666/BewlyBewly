@@ -1,3 +1,5 @@
+import browser from 'webextension-polyfill'
+
 export interface WebDavConfig {
   url: string
   username: string
@@ -10,6 +12,56 @@ export interface WebDavResult<T = unknown> {
   status: number
   data?: T
   error?: string
+}
+
+/**
+ * WebDAV network requests must run in the background/service worker, not in the
+ * linux.do content script. The content script inherits the linux.do page origin,
+ * so cross-origin `fetch` to an arbitrary WebDAV server is rejected by CORS and
+ * surfaces as `Failed to fetch`. The background context has `<all_urls>` host
+ * permission and can reach any WebDAV origin directly.
+ */
+export enum WEBDAV_MESSAGE {
+  TEST = 'webdavTest',
+  UPLOAD = 'webdavUpload',
+  DOWNLOAD = 'webdavDownload',
+}
+
+interface WebdavBackgroundMessage {
+  contentScriptQuery: WEBDAV_MESSAGE
+  config: WebDavConfig
+  data?: string
+}
+
+function isWebdavResult<T>(value: unknown): value is WebDavResult<T> {
+  return typeof value === 'object' && value !== null && 'ok' in value && 'status' in value
+}
+
+async function requestWebdavViaBackground<T>(message: WebdavBackgroundMessage): Promise<WebDavResult<T>> {
+  try {
+    const response = await browser.runtime.sendMessage(message)
+    if (isWebdavResult<T>(response))
+      return response
+    return { ok: false, status: 0, error: 'invalid_background_response' }
+  }
+  catch (e) {
+    return { ok: false, status: 0, error: (e as Error).message }
+  }
+}
+
+/** Content-script entry point: run the WebDAV connection test in the background. */
+export function webdavTestViaBackground(config: WebDavConfig): Promise<WebDavResult> {
+  return requestWebdavViaBackground({ contentScriptQuery: WEBDAV_MESSAGE.TEST, config })
+}
+
+/** Content-script entry point: upload a settings snapshot through the background. */
+export function webdavUploadViaBackground(config: WebDavConfig, data: string): Promise<WebDavResult> {
+  return requestWebdavViaBackground({ contentScriptQuery: WEBDAV_MESSAGE.UPLOAD, config, data })
+}
+
+/** Content-script entry point: download the settings snapshot through the background. */
+export function webdavDownloadViaBackground(config: WebDavConfig): Promise<WebDavResult<string>> {
+  return requestWebdavViaBackground<string>({ contentScriptQuery: WEBDAV_MESSAGE.DOWNLOAD, config })
 }
 
 function encodeBasicAuth(username: string, password: string): string {
