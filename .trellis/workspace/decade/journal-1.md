@@ -566,3 +566,36 @@ App.vue 浮动刷新按钮在 topic list 页改为只刷新帖子列表（点击
 ### Next Steps
 
 - None - task complete
+
+## Session 18: 默认从一楼打开 Linux.do 帖子抽屉
+
+**Date**: 2026-07-08
+**Task**: 默认从一楼打开 Linux.do 帖子抽屉
+**Branch**: `main`
+
+### Summary
+
+实现 Linux.do 主题链接抽屉统一规范到 /1，补充回归测试与组件契约说明，并准备 v0.3.1 发布。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `76c242ce` | (see git log) |
+| `73979837` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

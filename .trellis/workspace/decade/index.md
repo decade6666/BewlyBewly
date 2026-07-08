@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
-- **Last Active**: 2026-07-03
+- **Total Sessions**: 18
+- **Last Active**: 2026-07-08
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~569 | Active |
+| `journal-1.md` | ~602 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-07-08 | 默认从一楼打开 Linux.do 帖子抽屉 | `76c242ce`, `73979837` | `main` |
 | 17 | 2026-07-03 | WebDAV 设置同步与 v0.3.0 发布 | `4af95df8`, `2a312fa5`, `9427fc7b`, `43e3d850`, `f28a0b1f` | `main` |
 | 16 | 2026-06-26 | 刷新按钮在帖子列表页只刷新列表 + 发布 v0.2.2 | `85525752`, `2e7df833` | `main` |
 | 15 | 2026-06-20 | Release v0.2.1 (PR #5 merge + version bump, tag & GitHub release) | `4d581bd2`, `5686c864`, `819b53cb` | `main` |
