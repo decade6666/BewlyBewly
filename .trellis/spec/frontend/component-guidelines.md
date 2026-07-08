@@ -131,6 +131,108 @@ The header owns controls, iframe content starts below the header, and only appro
 
 ---
 
+## Scenario: Linux.do Topic Drawer URL Canonicalization
+
+### 1. Scope / Trigger
+
+- Trigger: changing how Linux.do topic-list clicks resolve the URL that enters the iframe drawer.
+- Applies to `src/sites/linuxDo.ts`, `src/contentScripts/views/App.vue`, `src/components/IframeDrawer.vue`, and `src/tests/linuxDoMigration.spec.ts`.
+- This is a cross-boundary contract because the site helper decides the topic URL, `App.vue` stores it in drawer/history state, and `IframeDrawer.vue` reuses the same URL for the iframe and the “Open in new tab” action.
+
+### 2. Signatures
+
+Site helper boundary:
+
+```typescript
+export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string | null
+export function findLinuxDoTopicLink(target: EventTarget | null, baseUrl: string): string | null
+```
+
+Drawer entry flow:
+
+```typescript
+const topicUrl = findLinuxDoTopicLink(getClickTarget(event), location.href)
+openIframeDrawer(topicUrl)
+```
+
+Drawer button reuse:
+
+```typescript
+function handleOpenInNewTab() {
+  openLinkToNewTab(props.url)
+}
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|------|----------|
+| `normalizeLinuxDoTopicUrl` input scope | Accepts same-origin Linux.do topic URLs only; non-topic or cross-origin URLs return `null`. |
+| Topic canonicalization | Any accepted topic URL is rewritten to `https://linux.do/t/<slug>/<topic-id>/1`. Bare topic URLs, floor-suffixed URLs, and placeholder slugs like `/t/-/123` all normalize to `/1`. |
+| Search/hash stripping | Accepted topic URLs must clear `search` and `hash` so drawer entry does not jump to a specific reply or carry tracking parameters. |
+| Canonicalization boundary | Linux.do-specific `/1` rewriting belongs in `src/sites/linuxDo.ts`; `App.vue` must not hand-build topic URLs. |
+| Drawer/history propagation | `App.vue` stores and reopens the canonicalized topic URL, but keeps `baseUrl` unchanged so list-page restore behavior is preserved. |
+| Drawer new-tab action | `IframeDrawer.vue` reuses the same canonicalized `props.url`; do not store a second “original click URL” unless the product requirement changes. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|-----------|-------------------|
+| Input is `/t/slug/123` | Normalize to `https://linux.do/t/slug/123/1`. |
+| Input is `/t/slug/123/9` | Normalize to `https://linux.do/t/slug/123/1`. |
+| Input is `/t/slug/123?foo=bar#post-9` | Normalize to `https://linux.do/t/slug/123/1`. |
+| Input is `/t/-/123` | Normalize to `https://linux.do/t/-/123/1`. |
+| Input is `/u/example` or `/c/general/5` | Return `null`; do not open the drawer. |
+| `App.vue` rewrites `baseUrl` together with `topicUrl` | Treat as a regression; closing/restoring the list page can lose the original list route state. |
+| A second original-topic URL state is added only for the new-tab button | Treat as a regression unless the product explicitly requires different drawer and new-tab semantics. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: the site helper returns a canonical `/1` topic URL, `App.vue` passes it through unchanged, and `IframeDrawer.vue` opens that same URL in both the iframe and the new-tab action.
+- Base: a topic link already ends with `/1`; the helper still returns the canonical `/1` form without search/hash.
+- Bad: `App.vue` appends `/1` itself, or the helper preserves `#post-*` / query parameters that can scroll the drawer to a middle reply.
+
+### 6. Tests Required
+
+- `src/tests/linuxDoMigration.spec.ts`: assert `normalizeLinuxDoTopicUrl()` canonicalizes bare topic URLs, floor-suffixed URLs, query/hash URLs, and `/t/-/123` to `/1`.
+- `src/tests/linuxDoMigration.spec.ts`: assert `findLinuxDoTopicLink()` canonicalizes nested-click topic targets with floor/query/hash to `/1`.
+- `src/tests/linuxDoMigration.spec.ts`: keep negative non-topic URL cases green.
+- Source regression: keep `App.vue` routed through `findLinuxDoTopicLink(getClickTarget(event), location.href)` and `openIframeDrawer(topicUrl)` rather than inlining Linux.do URL rewriting.
+- Validation commands after changing this contract: `pnpm exec vitest run src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, and file- or repo-level lint appropriate to the touched paths.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+const topicUrl = findLinuxDoTopicLink(getClickTarget(event), location.href)
+const normalizedTopicUrl = `${topicUrl}/1`
+openIframeDrawer(normalizedTopicUrl)
+```
+
+This duplicates site-specific URL logic in `App.vue`, mishandles existing floor/query/hash state, and makes drawer/history behavior drift from the site helper.
+
+#### Correct
+
+```typescript
+const topicUrl = findLinuxDoTopicLink(getClickTarget(event), location.href)
+
+if (!topicUrl)
+  return
+
+openIframeDrawer(topicUrl)
+```
+
+```typescript
+export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string | null {
+  // site helper owns Linux.do topic canonicalization to `/1`
+}
+```
+
+The site helper is the single source of truth for Linux.do topic canonicalization, while `App.vue` only propagates the resolved drawer URL.
+
+---
+
 ## Component Structure
 
 - Use `<script setup lang="ts">` for Vue single-file components.

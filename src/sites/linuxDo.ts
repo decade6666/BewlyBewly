@@ -3,6 +3,7 @@ const TOPIC_LIST_PATHS = new Set(['', '/latest', '/top', '/hot'])
 const HOME_PAGE_PATHS = new Set(['', '/latest'])
 const CATEGORY_PATH_PATTERN = /^\/c(?:\/[^/]+)+$/
 const TOPIC_PATH_PATTERN = /^\/t\/[^/]+\/\d+(?:\/\d+)?$/
+const TOPIC_PATH_CAPTURE_PATTERN = /^\/t\/([^/]+)\/(\d+)(?:\/\d+)?$/
 // Linux.do body classes can include topic-card tokens, so constrain hiding to topic list items.
 const TOPIC_ITEM_SELECTOR = [
   'tr.topic-list-item',
@@ -551,6 +552,17 @@ export function normalizeLinuxDoTopicUrl(input: string, baseUrl: string): string
 
   if (!TOPIC_PATH_PATTERN.test(parsedUrl.pathname))
     return null
+
+  const topicMatch = parsedUrl.pathname.match(TOPIC_PATH_CAPTURE_PATTERN)
+
+  if (!topicMatch)
+    return null
+
+  const [, slug, topicId] = topicMatch
+
+  parsedUrl.pathname = `/t/${slug}/${topicId}/1`
+  parsedUrl.search = ''
+  parsedUrl.hash = ''
 
   return parsedUrl.toString()
 }

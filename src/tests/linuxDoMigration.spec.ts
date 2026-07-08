@@ -177,9 +177,10 @@ describe('linux.do discourse URL helpers', () => {
   })
 
   it.each([
-    ['/t/welcome-to-linux-do/123', 'https://linux.do/t/welcome-to-linux-do/123'],
-    ['https://linux.do/t/welcome-to-linux-do/123/4', 'https://linux.do/t/welcome-to-linux-do/123/4'],
-    ['https://linux.do/t/welcome-to-linux-do/123?foo=bar#post-4', 'https://linux.do/t/welcome-to-linux-do/123?foo=bar#post-4'],
+    ['/t/welcome-to-linux-do/123', 'https://linux.do/t/welcome-to-linux-do/123/1'],
+    ['https://linux.do/t/welcome-to-linux-do/123/4', 'https://linux.do/t/welcome-to-linux-do/123/1'],
+    ['https://linux.do/t/welcome-to-linux-do/123?foo=bar#post-4', 'https://linux.do/t/welcome-to-linux-do/123/1'],
+    ['https://linux.do/t/-/123', 'https://linux.do/t/-/123/1'],
   ])('normalizes same-origin topic URL %s', (input, expected) => {
     expect(normalizeLinuxDoTopicUrl(input, 'https://linux.do/latest')).toBe(expected)
   })
@@ -195,14 +196,14 @@ describe('linux.do discourse URL helpers', () => {
 
   it('finds topic links from nested click targets', () => {
     document.body.innerHTML = `
-      <a class="title raw-link raw-topic-link" href="/t/welcome-to-linux-do/123">
+      <a class="title raw-link raw-topic-link" href="/t/welcome-to-linux-do/123/9?foo=bar#post-9">
         <span data-testid="title">Welcome</span>
       </a>
     `
 
     const target = document.querySelector('[data-testid="title"]')
 
-    expect(findLinuxDoTopicLink(target, 'https://linux.do/latest')).toBe('https://linux.do/t/welcome-to-linux-do/123')
+    expect(findLinuxDoTopicLink(target, 'https://linux.do/latest')).toBe('https://linux.do/t/welcome-to-linux-do/123/1')
   })
 
   it('ignores non-topic links from nested click targets', () => {
@@ -1409,6 +1410,8 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(drawerSource).not.toMatch(blockedLegacyTargets)
     expect(drawerSource).toContain('handleOpenInNewTab')
     expect(drawerSource).toContain('handleClose')
+    expect(drawerSource).toContain('openLinkToNewTab(props.url)')
+    expect(drawerSource).toContain(':src="props.url"')
     expect(drawerSource).toContain('sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"')
     expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
     expect(drawerSource).toContain('import { applyLinuxDoDrawerChrome } from \'~/sites/linuxDo\'')
