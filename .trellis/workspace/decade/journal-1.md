@@ -633,3 +633,35 @@ Removed legacy settings UI and WebDAV auto-sync, added the manual WebDAV configu
 ### Next Steps
 
 - None - task complete
+
+## Session 20: WebDAV 版本化备份发布
+
+**Date**: 2026-07-11
+**Task**: WebDAV 版本化备份发布
+**Branch**: `main`
+
+### Summary
+
+完成 WebDAV 目录化版本备份、20 份轮转、旧单文件兼容、备份选择恢复、类型检查/测试/构建验证，以及 v0.3.3 发布。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `85660b68` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

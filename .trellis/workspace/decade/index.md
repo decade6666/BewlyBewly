@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 19
-- **Last Active**: 2026-07-10
+- **Total Sessions**: 20
+- **Last Active**: 2026-07-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~636 | Active |
+| `journal-1.md` | ~668 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 20 | 2026-07-11 | WebDAV 版本化备份发布 | `85660b68` | `main` |
 | 19 | 2026-07-10 | Manual WebDAV settings dialog | `634b124b`, `e709101c`, `214c2694` | `main` |
 | 18 | 2026-07-08 | 默认从一楼打开 Linux.do 帖子抽屉 | `76c242ce`, `73979837` | `main` |
 | 17 | 2026-07-03 | WebDAV 设置同步与 v0.3.0 发布 | `4af95df8`, `2a312fa5`, `9427fc7b`, `43e3d850`, `f28a0b1f` | `main` |
