@@ -599,3 +599,37 @@ App.vue 浮动刷新按钮在 topic list 页改为只刷新帖子列表（点击
 ### Next Steps
 
 - None - task complete
+
+## Session 19: Manual WebDAV settings dialog
+
+**Date**: 2026-07-10
+**Task**: Manual WebDAV settings dialog
+**Branch**: `main`
+
+### Summary
+
+Removed legacy settings UI and WebDAV auto-sync, added the manual WebDAV configuration dialog with validated transfer flows and accessibility contracts, and prepared v0.3.2.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `634b124b` | (see git log) |
+| `e709101c` | (see git log) |
+| `214c2694` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
