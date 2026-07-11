@@ -6,7 +6,38 @@
 
 ## Overview
 
-This project uses repository-wide linting and type checking for both extension source code and project metadata. Treat `.claude/` and `.trellis/` Markdown/YAML/JSON files as linted project files when they are tracked.
+This project uses repository-wide linting and type checking for both extension source code and project metadata. Treat tracked `.claude/**` and `.trellis/spec/**` files as linted project files when they are part of the change.
+
+### Repository-level `pnpm lint` Scope
+
+`pnpm lint` focuses on **actively maintained source code, configuration, and tracked specs**:
+
+- **Included**: `src/**`, root config files, tracked `.claude/**`, tracked `.trellis/spec/**`
+- **Excluded**: `.trellis/workspace/**` (runtime session data), `.trellis/tasks/**` (task artifacts, including active and archived task docs), `extension/**` / `extension-firefox/**` (build outputs)
+
+Trellis workspace and task directories contain session logs, PRDs, implementation notes, and archived task metadata that are **not repository-level source contracts**. They are excluded from repository-level lint to keep noise low and focus on real maintenance targets.
+
+### Repository-level `pnpm knip` Scope
+
+`pnpm knip` follows the configured source entry graph from `knip.json`; it does **not** lint/spec-check tracked docs. The current repo-level Knip policy is:
+
+- ignore `.trellis/**`
+- ignore legacy Bilibili view implementations that are intentionally preserved but not wired into current entry points
+- ignore standalone dormant helpers/bootstrap assets that are only referenced by ignored legacy views or by migration tests
+- keep shared active contracts visible (for example `src/contentScripts/views/Home/types.ts` and active model files still used by current components)
+- ignore legacy model files individually instead of hiding the whole `src/models/**` tree
+- keep genuinely unused dependencies visible unless a documented toolchain false positive requires `ignoreDependencies`
+
+### Historical Code Preservation
+
+Some legacy Bilibili views and model files are preserved for future reference but are not currently used. These are explicitly ignored in `knip.json` with **narrow boundaries**:
+
+- full legacy view trees such as `src/contentScripts/views/{Anime,Favorites,History,Moments,Search,WatchLater}/**`
+- `src/contentScripts/views/Home/Home.vue` and `src/contentScripts/views/Home/components/**`, while keeping `src/contentScripts/views/Home/types.ts` in coverage
+- standalone dormant helpers such as `src/composables/useFilter.ts`, `src/logic/common-setup.ts`, `src/utils/svgIcons.ts`, and `src/contentScripts/views/necessarySettingsWatchers.ts` when they are only referenced by ignored legacy code or migration tests
+- specific legacy model files that are only referenced by ignored legacy views, while shared active models remain in Knip coverage
+
+These paths should not trigger "unused" warnings. Future tasks may remove or reintegrate them.
 
 ---
 
@@ -15,7 +46,7 @@ This project uses repository-wide linting and type checking for both extension s
 ### 1. Scope / Trigger
 
 - Trigger: before committing code or project metadata after implementation, migration, or Trellis workflow updates.
-- Applies to source files, `.claude/` agent/command files, `.trellis/` specs/tasks/workspace files, and root project configuration.
+- Applies to source files, `.claude/**`, `.trellis/spec/**`, and root project configuration; Trellis workspace/task artifacts follow separate repository-level ignore boundaries.
 
 ### 2. Signatures
 
@@ -37,11 +68,12 @@ Local-only Claude settings path:
 
 | Item | Contract |
 |------|----------|
-| Lint command | `pnpm lint` runs `eslint` across the repository. |
+| Lint command | `pnpm lint` runs `eslint` across the repository-level source, config, and tracked spec files that are not explicitly ignored. |
 | Typecheck command | `pnpm typecheck` runs `vue-tsc`; do not use `pnpm type-check` unless the script exists. |
 | Test command | `pnpm test` runs `vitest test`; relevant tests must pass for code changes. |
+| Knip command | `pnpm knip` follows `knip.json` entry points and ignore rules; it is not a general metadata linter for `.claude/**` or `.trellis/spec/**`. |
 | Local Claude settings | `.claude/settings.local.json` is machine-local and must stay ignored by Git. |
-| Tracked metadata | Markdown/YAML/JSON under `.claude/` and `.trellis/` must remain lint-clean. |
+| Tracked metadata | Tracked `.claude/**` and `.trellis/spec/**` files must remain lint-clean when they are part of the change. |
 
 ### 4. Validation & Error Matrix
 
@@ -127,7 +159,7 @@ git status --short --untracked-files=all
 | Evidence scope | Include local source paths and external URLs used as evidence. |
 | Validation boundaries | Mark failed or blocked external fetches as unverified; do not promote them to stable API assumptions. |
 | Runtime behavior | Documentation-only tasks must not modify `src/`, build config, extension permissions, or storage schemas. |
-| Task metadata | Keep Trellis JSON/JSONL metadata lint-clean and remove template `_example` rows before finish-work. |
+| Task metadata | Keep Trellis JSON/JSONL metadata reviewable and remove template `_example` rows before finish-work, even though repo-level lint may exclude task artifacts. |
 
 ### 4. Validation & Error Matrix
 
@@ -141,14 +173,15 @@ git status --short --untracked-files=all
 ### 5. Good/Base/Bad Cases
 
 - Good: `docs/bewly-linux-do-migration-plan-cmn_CN.md` lists source paths, external URLs, failed `latest.json` / `top.json` boundaries, and no source files changed.
-- Base: a docs-only plan passes `pnpm lint` and `git diff --name-only` shows only docs and Trellis metadata.
+- Base: a docs-only plan passes `pnpm lint` for tracked docs/specs and `git diff --name-only` shows only docs and Trellis metadata.
 - Bad: an unsuffixed Chinese plan looks like canonical English docs, or a failed endpoint is described as a verified contract.
 
 ### 6. Tests Required
 
-- `pnpm lint`: assert Markdown and Trellis metadata are lint-clean.
+- `pnpm lint`: assert tracked docs/spec files remain lint-clean.
 - `git diff --name-only`: assert no source/runtime files changed for documentation-only tasks.
 - `git status --short --untracked-files=all`: assert the new plan and task metadata are the only relevant untracked paths before staging.
+- Manual metadata review: assert Trellis JSON/JSONL metadata removed `_example` rows and kept only task-specific records.
 - Manual document review: assert the plan includes priority, roadmap, evidence paths, external URLs, non-goals, and validation boundaries.
 
 ### 7. Wrong vs Correct
@@ -792,7 +825,7 @@ This resolves the first visible category badge and keeps rerenders placement-awa
 ## Required Patterns
 
 - Use the exact project scripts in `package.json`: `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
-- Keep tracked Trellis and Claude metadata lint-clean when those directories are part of the change.
+- Keep tracked `.claude/**` and `.trellis/spec/**` files lint-clean when those paths are part of the change.
 - For JSON Lines examples in Markdown, use `jsonl` fenced code blocks.
 
 ---
@@ -811,6 +844,6 @@ This resolves the first visible category badge and keeps rerenders placement-awa
 - [ ] Validation commands match `package.json` script names.
 - [ ] `.claude/settings.local.json` is ignored and not staged.
 - [ ] Markdown code fences match their content format, especially `jsonl` for JSON Lines.
-- [ ] Trellis/Claude metadata changes are intentional and lint-clean.
+- [ ] Tracked `.claude/**` and `.trellis/spec/**` changes are intentional and lint-clean.
 - [ ] Source changes have relevant typecheck and test evidence.
 - [ ] Content-script UI/behavior changes were verified in a browser with the built extension loaded, asserting through the `#bewly` shadow root.
