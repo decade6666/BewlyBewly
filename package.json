@@ -51,10 +51,8 @@
     "overlayscrollbars": "2.7.3",
     "overlayscrollbars-vue": "^0.5.9",
     "pinia": "^2.1.7",
-    "qrcode.vue": "^3.4.1",
     "vue-i18n": "^9.13.1",
-    "vue-toastification": "2.0.0-rc.5",
-    "vuedraggable": "^4.1.0"
+    "vue-toastification": "2.0.0-rc.5"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.21.1",
