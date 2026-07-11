@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Check that active settings, drawer, and Shadow DOM contracts were not weakened by dead-tree removal"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Check targeted/full validation, tracked metadata hygiene, and generated-artifact scope"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Confirm exact old-path and translation searches found no missed asymmetric references"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/legacy-settings-tree.md","reason":"Compare the diff against the proven 17-file boundary and retained runtime/localization contracts"}

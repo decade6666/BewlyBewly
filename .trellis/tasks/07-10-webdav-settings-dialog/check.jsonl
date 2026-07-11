@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review active dialog semantics, Shadow DOM ownership, focus behavior, and browser evidence"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Review draft versus persisted state, immutable updates, and legacy-key cleanup"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Apply final test/static/build/browser checks and report blocked verification accurately"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify data and error contracts across component, storage, sync, background, and WebDAV boundaries"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-ui.md","reason":"Check that only the active settings surface is redesigned and accessibility gaps are closed"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-sync.md","reason":"Check that automatic paths are gone while every manual transport and version-1 contract remains"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/legacy-settings-tree.md","reason":"Check deletion completeness without removing active models, shared code, dependencies, or assets"}

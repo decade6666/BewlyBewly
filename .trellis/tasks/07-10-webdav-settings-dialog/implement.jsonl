@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Active Linux.do Shadow DOM overlay, dialog accessibility, and browser-validation contracts"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Persisted settings, transient component state, and legacy-storage cleanup boundaries"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Required test, lint, typecheck, build, metadata, and real-extension verification gates"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"End-to-end UI, storage, content-script, background, and remote snapshot data-flow review"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-ui.md","reason":"Evidence for active versus legacy settings surfaces, current controls, localization, and modal patterns"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-sync.md","reason":"Evidence for automatic/manual sync paths, obsolete state, transport retention, and migration impact"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/legacy-settings-tree.md","reason":"Reachability and deletion-impact proof for the unmounted settings tree and tree-owned translations"}

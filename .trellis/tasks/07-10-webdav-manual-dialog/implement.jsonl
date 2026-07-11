@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Implement the active Shadow DOM secondary dialog with localized semantics, focus, and stable component ownership"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Implement local draft state, immutable persisted merges, transient operation state, and legacy storage cleanup"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Follow TDD plus test, lint, typecheck, Knip, build, and real-extension validation requirements"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Map validation and errors across dialog, persisted settings, sync logic, runtime messaging, and remote data"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Centralize URL/default-path/dismissal/operation guards instead of duplicating logic"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-ui.md","reason":"Current active UI, localization, modal patterns, accessibility gaps, and test coverage evidence"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-sync.md","reason":"Current automatic/manual paths, removable state, retained transport, envelope, and migration evidence"}

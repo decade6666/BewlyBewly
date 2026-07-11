@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review dialog semantics, focus lifecycle, Shadow DOM rendering, and real-browser interaction evidence"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Review draft isolation, immutable Save, persisted transfer guards, and migration preservation"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Apply complete static, test, build, browser, metadata, and result-reporting gates"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify formats, validation ownership, and observable failures at every manual WebDAV boundary"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check that common constants and guards have one source of truth and no old paths remain"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-ui.md","reason":"Compare final UI against the confirmed active-surface and accessibility requirements"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/webdav-sync.md","reason":"Confirm automatic behavior is fully removed and manual background/version-1 behavior is intact"}

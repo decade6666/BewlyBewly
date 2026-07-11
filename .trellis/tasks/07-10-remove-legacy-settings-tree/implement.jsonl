@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Preserve active Linux.do component contracts while removing only the unmounted settings subtree"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Deletion-task test, lint, typecheck, Knip, build, metadata, and scope-verification rules"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Search every old path and translation caller before and after the structural deletion"}
+{"file":".trellis/tasks/07-10-webdav-settings-dialog/research/legacy-settings-tree.md","reason":"Authoritative file inventory, reachability proof, test dependencies, localization ownership, and preserved boundaries"}
