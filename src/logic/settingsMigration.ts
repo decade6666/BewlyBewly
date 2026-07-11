@@ -1,4 +1,4 @@
-const LEGACY_SETTINGS_KEYS = ['hideHomePageGuidelineBanner'] as const
+const LEGACY_SETTINGS_KEYS = ['hideHomePageGuidelineBanner', 'webdavAutoSync', 'webdavLocalModifiedTime'] as const
 
 type LegacySettingKey = typeof LEGACY_SETTINGS_KEYS[number]
 

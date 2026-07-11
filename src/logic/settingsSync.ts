@@ -2,6 +2,7 @@ import type { BlockedWordsState, Settings } from './storage'
 import { blockedWords, originalSettings, settings } from './storage'
 import type { WebDavConfig } from './webdav'
 import { webdavDownloadViaBackground, webdavUploadViaBackground } from './webdav'
+import { DEFAULT_WEBDAV_PATH } from './webdavSettings'
 
 interface SyncEnvelope {
   version: 1
@@ -21,9 +22,7 @@ const WEBDAV_FIELDS: (keyof Settings)[] = [
   'webdavUsername',
   'webdavPassword',
   'webdavPath',
-  'webdavAutoSync',
   'webdavLastSyncTime',
-  'webdavLocalModifiedTime',
 ]
 
 const WEBDAV_FIELD_SET = new Set<keyof Settings>(WEBDAV_FIELDS)
@@ -44,6 +43,26 @@ function cloneBlockedWordsState(source: BlockedWordsState): BlockedWordsState {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isBlockedWordsState(value: unknown): value is BlockedWordsState {
+  return isRecord(value)
+    && typeof value.enabled === 'boolean'
+    && Array.isArray(value.words)
+    && value.words.every(word => typeof word === 'string')
+}
+
+function isSyncEnvelope(value: unknown): value is SyncEnvelope {
+  return isRecord(value)
+    && value.version === 1
+    && typeof value.timestamp === 'number'
+    && Number.isFinite(value.timestamp)
+    && isRecord(value.settings)
+    && isBlockedWordsState(value.blockedWords)
+}
+
 function buildSyncState(): SyncState {
   return {
     settings: stripWebdavFields(settings.value),
@@ -51,28 +70,19 @@ function buildSyncState(): SyncState {
   }
 }
 
-function buildSyncSnapshot(state: SyncState = buildSyncState()): string {
-  return JSON.stringify(state)
-}
-
 function getWebdavConfig(): WebDavConfig {
   return {
     url: settings.value.webdavUrl,
     username: settings.value.webdavUsername,
     password: settings.value.webdavPassword,
-    path: settings.value.webdavPath || '/bewly/settings.json',
+    path: settings.value.webdavPath || DEFAULT_WEBDAV_PATH,
   }
 }
 
 export interface SyncResult {
   ok: boolean
   error?: string
-  skipped?: boolean
 }
-
-/** Guards the auto-upload watcher from firing while a remote snapshot is being applied. */
-let applyingRemote = false
-let lastSyncedSnapshot: string | null = null
 
 export async function uploadSettings(): Promise<SyncResult> {
   const config = getWebdavConfig()
@@ -84,14 +94,12 @@ export async function uploadSettings(): Promise<SyncResult> {
     blockedWords: syncState.blockedWords,
   }
   const result = await webdavUploadViaBackground(config, JSON.stringify(envelope, null, 2))
-  if (result.ok) {
-    lastSyncedSnapshot = buildSyncSnapshot(syncState)
-    settings.value.webdavLastSyncTime = envelope.timestamp
-  }
+  if (result.ok)
+    settings.value = { ...settings.value, webdavLastSyncTime: envelope.timestamp }
   return { ok: result.ok, error: result.error }
 }
 
-export async function downloadSettings(options: { onlyIfNewer?: boolean } = {}): Promise<SyncResult> {
+export async function downloadSettings(): Promise<SyncResult> {
   const config = getWebdavConfig()
   const result = await webdavDownloadViaBackground(config)
 
@@ -101,82 +109,51 @@ export async function downloadSettings(options: { onlyIfNewer?: boolean } = {}):
     return { ok: false, error: result.error }
   }
 
-  let envelope: SyncEnvelope
+  let parsedEnvelope: unknown
   try {
-    envelope = JSON.parse(result.data!) as SyncEnvelope
+    parsedEnvelope = JSON.parse(result.data!) as unknown
   }
   catch {
     return { ok: false, error: 'parse_error' }
   }
 
-  if (envelope.version !== 1)
+  if (!isRecord(parsedEnvelope))
+    return { ok: false, error: 'parse_error' }
+
+  if (parsedEnvelope.version !== 1)
     return { ok: false, error: 'unsupported_version' }
 
-  // Auto-sync path: skip applying an older/equal remote snapshot to avoid
-  // clobbering newer local changes across multiple tabs.
-  if (options.onlyIfNewer && envelope.timestamp <= settings.value.webdavLastSyncTime)
-    return { ok: true, skipped: true }
+  if (!isSyncEnvelope(parsedEnvelope))
+    return { ok: false, error: 'parse_error' }
 
-  applyingRemote = true
-  try {
-    const merged = { ...originalSettings, ...envelope.settings } as Settings
-    // Preserve local-only WebDAV config; never overwrite it from the remote.
-    for (const key of WEBDAV_FIELDS)
-      (merged[key] as Settings[typeof key]) = settings.value[key]
-    settings.value = merged
-    if (envelope.blockedWords) {
-      const remoteBlockedWords = cloneBlockedWordsState(envelope.blockedWords)
-      blockedWords.value = remoteBlockedWords
-    }
-    settings.value.webdavLastSyncTime = envelope.timestamp
-    settings.value.webdavLocalModifiedTime = 0
-    lastSyncedSnapshot = buildSyncSnapshot()
-  }
-  finally {
-    applyingRemote = false
-  }
+  settings.value = buildDownloadedSettings(parsedEnvelope)
+  blockedWords.value = cloneBlockedWordsState(parsedEnvelope.blockedWords)
 
   return { ok: true }
 }
 
-let autoSyncTimer: ReturnType<typeof setTimeout> | null = null
-let autoSyncUnwatch: (() => void) | null = null
-
-export function setupAutoSync(watchFn: typeof import('vue').watch): void {
-  if (autoSyncUnwatch) {
-    autoSyncUnwatch()
-    autoSyncUnwatch = null
+/**
+ * Build the downloaded settings result immutably from defaults, the remote
+ * settings, the current retained local WebDAV configuration, and the remote
+ * envelope timestamp as the last-sync time. Never mutates the envelope or
+ * current settings; local-WebDAV configuration is preserved across downloads.
+ */
+function buildDownloadedSettings(envelope: SyncEnvelope): Settings {
+  const merged: Settings = {
+    ...originalSettings,
+    ...envelope.settings,
+    ...retainedWebdavFields(),
+    webdavLastSyncTime: envelope.timestamp,
   }
-
-  autoSyncUnwatch = watchFn(
-    () => buildSyncState(),
-    (newVal) => {
-      const currentSnapshot = buildSyncSnapshot(newVal)
-      if (currentSnapshot === lastSyncedSnapshot)
-        return
-      if (applyingRemote)
-        return
-      if (!settings.value.webdavEnabled || !settings.value.webdavAutoSync || !settings.value.webdavUrl)
-        return
-
-      settings.value.webdavLocalModifiedTime = Date.now()
-
-      if (autoSyncTimer)
-        clearTimeout(autoSyncTimer)
-      autoSyncTimer = setTimeout(() => {
-        uploadSettings().catch(console.error)
-      }, 2000)
-    },
-    { deep: true },
-  )
+  return merged
 }
 
-export async function autoDownloadOnStartup(): Promise<SyncResult | null> {
-  if (!settings.value.webdavEnabled || !settings.value.webdavAutoSync || !settings.value.webdavUrl)
-    return null
-
-  if (settings.value.webdavLocalModifiedTime > settings.value.webdavLastSyncTime)
-    return { ok: true, skipped: true }
-
-  return downloadSettings({ onlyIfNewer: true })
+function retainedWebdavFields(): Pick<Settings, 'webdavEnabled' | 'webdavUrl' | 'webdavUsername' | 'webdavPassword' | 'webdavPath'> {
+  return {
+    webdavEnabled: settings.value.webdavEnabled,
+    webdavUrl: settings.value.webdavUrl,
+    webdavUsername: settings.value.webdavUsername,
+    webdavPassword: settings.value.webdavPassword,
+    webdavPath: settings.value.webdavPath,
+  }
 }

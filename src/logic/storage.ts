@@ -7,6 +7,7 @@ import type { HomeSubPage } from '~/contentScripts/views/Home/types'
 import type { AppPage } from '~/enums/appEnums'
 
 import { cleanLegacySettingsStorageValue, hasLegacySettingsFields, removeLegacySettingsFields } from './settingsMigration'
+import { DEFAULT_WEBDAV_PATH } from './webdavSettings'
 
 const SETTINGS_STORAGE_KEY = 'settings'
 
@@ -125,9 +126,7 @@ export interface Settings {
   webdavUsername: string
   webdavPassword: string
   webdavPath: string
-  webdavAutoSync: boolean
   webdavLastSyncTime: number
-  webdavLocalModifiedTime: number
 }
 
 export const originalSettings: Settings = {
@@ -240,10 +239,8 @@ export const originalSettings: Settings = {
   webdavUrl: '',
   webdavUsername: '',
   webdavPassword: '',
-  webdavPath: '/bewly/settings.json',
-  webdavAutoSync: false,
+  webdavPath: DEFAULT_WEBDAV_PATH,
   webdavLastSyncTime: 0,
-  webdavLocalModifiedTime: 0,
 }
 
 export async function cleanupLegacySettingsStorage(): Promise<void> {

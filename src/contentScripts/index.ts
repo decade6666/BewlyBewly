@@ -4,7 +4,7 @@ import { createApp, watch } from 'vue'
 import browser from 'webextension-polyfill'
 
 import { LINUX_DO_DRAWER_ROUTE_CHANGE } from '~/constants/globalEvents'
-import { autoDownloadOnStartup, blockedWords, settings, setupAutoSync } from '~/logic'
+import { blockedWords, settings } from '~/logic'
 import { hideLinuxDoHomePageElements, renderLinuxDoHomePageTopicTags } from '~/sites/linuxDo'
 import RESET_BEWLY_CSS from '~/styles/reset.css?raw'
 import { isInIframe } from '~/utils/main'
@@ -38,31 +38,7 @@ function onDOMLoaded() {
     return
 
   setupLinuxDoHomePageCleanup()
-  setupSettingsSync()
   injectApp()
-}
-
-function setupSettingsSync() {
-  setupAutoSync(watch)
-
-  // Pull remote settings once on startup. The watcher fires again after
-  // storage.local hydrates (settings start as defaults, then load async),
-  // so the download runs once WebDAV auto-sync is actually enabled.
-  let startupDownloadDone = false
-  const stopStartupWatch = watch(
-    () => [settings.value.webdavEnabled, settings.value.webdavAutoSync, settings.value.webdavUrl] as const,
-    ([enabled, autoSync, url]) => {
-      if (startupDownloadDone)
-        return
-      if (!enabled || !autoSync || !url)
-        return
-
-      startupDownloadDone = true
-      stopStartupWatch()
-      autoDownloadOnStartup().catch(console.error)
-    },
-    { immediate: true },
-  )
 }
 
 if (document.readyState !== 'loading')

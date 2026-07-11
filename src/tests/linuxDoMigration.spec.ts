@@ -79,21 +79,6 @@ describe('linux.do migration manifest and package metadata', () => {
     expect(pkg.homepage).toBe('https://github.com/decade6666/BewlyLinuxDo')
     expect(pkg.webExt.run.startUrl).toEqual(['https://linux.do/'])
   })
-
-  it('shows the v0.1 Linux.do plugin UI description in About', async () => {
-    const aboutSource = await readFile(resolve('src/components/Settings/About/About.vue'), 'utf8')
-
-    expect('0.2.0'.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.2')
-    expect('0.1.2'.replace(/^(\d+\.\d+)\.0$/, '$1')).toBe('0.1.2')
-    expect(aboutSource).toContain(
-      'const displayVersion = version.replace(/^(\\d+\\.\\d+)\\.0$/, \'$1\')',
-    )
-    expect(aboutSource).toContain(
-      'v{{ displayVersion }} - 面向 Linux.do 的专注抽屉浏览与首页内容过滤体验。',
-    )
-    expect(aboutSource).toContain('<span>BewlyLinuxDo</span>')
-    expect(aboutSource).not.toContain('Farewell')
-  })
 })
 
 describe('settings legacy field cleanup', () => {
@@ -113,28 +98,66 @@ describe('settings legacy field cleanup', () => {
     expect(cleanedSettings).not.toHaveProperty('hideHomePageGuidelineBanner')
   })
 
+  it('removes legacy automatic WebDAV sync keys while preserving retained WebDAV fields', () => {
+    const legacySettings = {
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavUsername: 'user',
+      webdavPassword: 'pass',
+      webdavPath: '/bewly/settings.json',
+      webdavAutoSync: true,
+      webdavLastSyncTime: 123,
+      webdavLocalModifiedTime: 456,
+      language: 'en',
+    }
+
+    const cleanedSettings = removeLegacySettingsFields(legacySettings)
+
+    expect(cleanedSettings).toEqual({
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavUsername: 'user',
+      webdavPassword: 'pass',
+      webdavPath: '/bewly/settings.json',
+      webdavLastSyncTime: 123,
+      language: 'en',
+    })
+    expect(cleanedSettings).not.toHaveProperty('webdavAutoSync')
+    expect(cleanedSettings).not.toHaveProperty('webdavLocalModifiedTime')
+  })
+
   it('cleans object-shaped browser-local settings values as serialized VueUse storage values', () => {
     const legacySettings = {
       hideHomePageGuidelineBanner: true,
       hideHomePagePinnedTopics: false,
+      webdavAutoSync: true,
+      webdavLocalModifiedTime: 789,
+      webdavEnabled: true,
       theme: 'dark',
     }
 
     expect(cleanLegacySettingsStorageValue(legacySettings)).toBe(JSON.stringify({
       hideHomePagePinnedTopics: false,
+      webdavEnabled: true,
       theme: 'dark',
     }))
   })
 
-  it('cleans serialized browser-local settings values', () => {
+  it('cleans serialized browser-local settings values including legacy automatic-sync keys', () => {
     const serializedSettings = JSON.stringify({
       hideHomePageGuidelineBanner: true,
       hideHomePagePinnedTopics: false,
+      webdavAutoSync: true,
+      webdavLocalModifiedTime: 789,
+      webdavEnabled: true,
+      webdavLastSyncTime: 123,
       theme: 'dark',
     })
 
     expect(cleanLegacySettingsStorageValue(serializedSettings)).toBe(JSON.stringify({
       hideHomePagePinnedTopics: false,
+      webdavEnabled: true,
+      webdavLastSyncTime: 123,
       theme: 'dark',
     }))
     expect(cleanLegacySettingsStorageValue('not-json')).toBe('not-json')
@@ -1273,14 +1296,12 @@ describe('linux.do content script and drawer boundaries', () => {
   })
 
   it('removes guideline banner controls, locale keys, and settings defaults', async () => {
-    const homeSettingsSource = await readFile(resolve('src/components/Settings/BewlyPages/Home/Home.vue'), 'utf8')
     const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
     const storageSource = await readFile(resolve('src/logic/storage.ts'), 'utf8')
     const migrationSource = await readFile(resolve('src/logic/settingsMigration.ts'), 'utf8')
     const enLocaleSource = await readFile(resolve('src/_locales/en.yml'), 'utf8')
     const cmnCNLocaleSource = await readFile(resolve('src/_locales/cmn-CN.yml'), 'utf8')
 
-    expect(homeSettingsSource).not.toMatch(/hide_homepage_guideline_banner|hideHomePageGuidelineBanner/)
     expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
     expect(storageSource).not.toContain('hideHomePageGuidelineBanner')
     expect(storageSource).toContain('showHomePageTopicTags: boolean')
@@ -1296,49 +1317,177 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(storageSource).toContain('migrateBlockedWordsToSync')
     expect(storageSource).toContain('void cleanupLegacySettingsStorage()')
     expect(storageSource).toContain('cleanLegacySettingsStorageValue(storedSettings)')
-    expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\'] as const')
+    expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\', \'webdavAutoSync\', \'webdavLocalModifiedTime\'] as const')
     expect(enLocaleSource).not.toContain('hide_homepage_guideline_banner')
     expect(cmnCNLocaleSource).not.toContain('hide_homepage_guideline_banner')
   })
 
-  it('exposes WebDAV sync in the linux.do inline settings panel and syncs blocked words', async () => {
+  it('removes automatic WebDAV sync and keeps the manual version-1 envelope plus blocked words', async () => {
     const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const indexSource = await readFile(resolve('src/contentScripts/index.ts'), 'utf8')
     const settingsSyncSource = await readFile(resolve('src/logic/settingsSync.ts'), 'utf8')
+    const storageSource = await readFile(resolve('src/logic/storage.ts'), 'utf8')
+    const logicIndexSource = await readFile(resolve('src/logic/index.ts'), 'utf8')
+    const webdavSettingsSource = await readFile(resolve('src/logic/webdavSettings.ts'), 'utf8')
     const manifestSource = await readFile(resolve('src/manifest.ts'), 'utf8')
 
-    expect(appSource).toContain('downloadSettings')
-    expect(appSource).toContain('uploadSettings')
-    expect(appSource).toContain('webdavTestViaBackground')
-    expect(appSource).toContain('settings.webdavEnabled')
-    expect(appSource).toContain('settings.webdavUrl')
-    expect(appSource).toContain('settings.webdavUsername')
-    expect(appSource).toContain('settings.webdavPassword')
-    expect(appSource).toContain('settings.webdavPath')
-    expect(appSource).toContain('settings.webdavAutoSync')
-    expect(appSource).toContain('settings.value.webdavLastSyncTime')
-    expect(appSource).toContain('handleWebdavTest')
-    expect(appSource).toContain('handleWebdavUpload')
-    expect(appSource).toContain('handleWebdavDownload')
+    // Automatic sync lifecycle is gone from the content script; the Vue watch
+    // import stays for homepage cleanup.
+    expect(indexSource).not.toContain('setupAutoSync')
+    expect(indexSource).not.toContain('autoDownloadOnStartup')
+    expect(indexSource).not.toContain('setupSettingsSync')
+    expect(indexSource).not.toContain('webdavAutoSync')
+    expect(indexSource).toMatch(/import \{ createApp, watch \} from 'vue'/)
+    expect(indexSource).toContain('cleanupLinuxDoHomePage()')
 
+    // Automatic-only state and exports are gone from settingsSync; the manual
+    // version-1 envelope, blocked-word cloning, local WebDAV exclusion, and
+    // last-sync updates remain.
     expect(settingsSyncSource).toContain('import type { BlockedWordsState, Settings } from \'./storage\'')
     expect(settingsSyncSource).toContain('import { blockedWords, originalSettings, settings } from \'./storage\'')
     expect(settingsSyncSource).toContain('blockedWords: BlockedWordsState')
     expect(settingsSyncSource).toContain('function buildSyncState()')
+    expect(settingsSyncSource).toContain('function cloneBlockedWordsState')
     expect(settingsSyncSource).toContain('blockedWords: cloneBlockedWordsState(blockedWords.value)')
-    expect(settingsSyncSource).toContain('lastSyncedSnapshot = buildSyncSnapshot(syncState)')
-    expect(settingsSyncSource).toContain('() => buildSyncState()')
-    expect(settingsSyncSource).toContain('blockedWords.value = remoteBlockedWords')
+    expect(settingsSyncSource).toContain('webdavUploadViaBackground')
+    expect(settingsSyncSource).toContain('webdavDownloadViaBackground')
+    expect(settingsSyncSource).toContain('version: 1')
+    expect(settingsSyncSource).toContain('webdavLastSyncTime: envelope.timestamp')
+    expect(settingsSyncSource).not.toMatch(/\bsetupAutoSync\b/)
+    expect(settingsSyncSource).not.toMatch(/\bautoDownloadOnStartup\b/)
+    expect(settingsSyncSource).not.toMatch(/\blastSyncedSnapshot\b/)
+    expect(settingsSyncSource).not.toMatch(/\bbuildSyncSnapshot\b/)
+    expect(settingsSyncSource).not.toMatch(/\bapplyingRemote\b/)
+    expect(settingsSyncSource).not.toMatch(/\bautoSyncTimer\b/)
+    expect(settingsSyncSource).not.toMatch(/\bautoSyncUnwatch\b/)
+    expect(settingsSyncSource).not.toMatch(/onlyIfNewer/)
+    expect(settingsSyncSource).not.toMatch(/\bwebdavAutoSync\b/)
+    expect(settingsSyncSource).not.toMatch(/\bwebdavLocalModifiedTime\b/)
+    expect(settingsSyncSource).toContain('function buildDownloadedSettings')
+    expect(settingsSyncSource).toContain('blockedWords.value = cloneBlockedWordsState')
+
+    // Retained WebDAV persisted fields detect explicit automatic-sync removal.
+    expect(storageSource).toContain('webdavEnabled: boolean')
+    expect(storageSource).toContain('webdavUrl: string')
+    expect(storageSource).toContain('webdavUsername: string')
+    expect(storageSource).toContain('webdavPassword: string')
+    expect(storageSource).toContain('webdavPath: string')
+    expect(storageSource).toContain('webdavLastSyncTime: number')
+    expect(storageSource).not.toContain('webdavAutoSync: boolean')
+    expect(storageSource).not.toContain('webdavLocalModifiedTime: number')
+    expect(storageSource).not.toContain('webdavAutoSync: false')
+    expect(storageSource).not.toContain('webdavLocalModifiedTime: 0')
+
+    // The pure draft helper module is exported through the logic barrel.
+    expect(logicIndexSource).toContain('webdavSettings')
+    expect(webdavSettingsSource).toContain('export const DEFAULT_WEBDAV_PATH = \'/bewly/settings.json\'')
+    expect(webdavSettingsSource).toContain('export function copyWebdavDraft')
+    expect(webdavSettingsSource).toContain('export function normalizeDraft')
+    expect(webdavSettingsSource).toContain('export function validateSaveDraft')
+    expect(webdavSettingsSource).toContain('export function validateTestDraft')
+    expect(webdavSettingsSource).toContain('export function isDraftDirty')
+    expect(webdavSettingsSource).toContain('export function isSavedConfigUsable')
+    expect(webdavSettingsSource).toContain('export function mergeWebdavFields')
+    expect(webdavSettingsSource).toContain('export function isAbsoluteHttpUrl')
+
+    // The active panel owns only the WebDAV entry button plus the always-mounted
+    // dialog instance. No inline fields, actions, status, or last-sync text.
+    expect(appSource).not.toContain('webdavAutoSync')
+    expect(appSource).not.toContain('settings.webdavUrl')
+    expect(appSource).not.toContain('settings.webdavUsername')
+    expect(appSource).not.toContain('settings.webdavPassword')
+    expect(appSource).not.toContain('settings.webdavPath')
+    expect(appSource).not.toContain('handleWebdavTest')
+    expect(appSource).not.toContain('handleWebdavUpload')
+    expect(appSource).not.toContain('handleWebdavDownload')
+    expect(appSource).not.toContain('webdavTesting')
+    expect(appSource).not.toContain('webdavUploading')
+    expect(appSource).not.toContain('webdavDownloading')
+    expect(appSource).not.toContain('webdavStatusMessage')
+    expect(appSource).not.toContain('webdavLastSyncText')
+    expect(appSource).toContain('showWebdavSettingsDialog')
+    expect(appSource).toContain('WebdavSettingsDialog.vue')
+    expect(appSource).toContain(':visible="showWebdavSettingsDialog"')
+    expect(appSource).toContain('@close="closeWebdavSettingsDialog"')
+    expect(appSource).toContain('webdavSettingsButtonRef')
 
     expect(manifestSource).toContain('const CHROME_EXTENSION_KEY =')
     expect(manifestSource).toContain('if (!isFirefox)')
     expect(manifestSource).toContain('manifest.key = CHROME_EXTENSION_KEY')
   })
 
+  it('renders an accessible manual WebDAV dialog with button-only primary entry', async () => {
+    const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
+    const dialogSource = await readFile(resolve('src/contentScripts/views/WebdavSettingsDialog.vue'), 'utf8')
+    const saveHandlerStart = dialogSource.indexOf('function handleSave()')
+    const saveHandler = dialogSource.slice(
+      saveHandlerStart,
+      dialogSource.indexOf('async function handleTest()', saveHandlerStart),
+    )
+    const globalKeydownHandler = appSource.slice(
+      appSource.indexOf('function handleGlobalKeydown'),
+      appSource.indexOf('useEventListener(document, \'click\''),
+    )
+
+    // One localized button opens the dialog; the dialog is always mounted.
+    expect(appSource).toContain('linux-do-settings-webdav-trigger')
+    expect(appSource).toContain('openWebdavSettingsDialog')
+
+    // The dialog owns the draft, save, validation, operation lock, and
+    // confirmation semantics with accessible attributes and focus lifecycle.
+    expect(dialogSource).toContain('defineProps')
+    expect(dialogSource).toContain('visible: boolean')
+    expect(dialogSource).toContain('defineEmits')
+    expect(dialogSource).toContain('(event: \'close\')')
+    expect(dialogSource).toContain('role="dialog"')
+    expect(dialogSource).toContain('aria-modal="true"')
+    expect(dialogSource).toContain('aria-labelledby')
+    expect(dialogSource).toContain('interface Props')
+    expect(dialogSource).toContain('const draft = ref(')
+    expect(dialogSource).toContain('mergeWebdavFields')
+    expect(dialogSource).toContain('validateSaveDraft')
+    expect(dialogSource).toContain('validateTestDraft')
+    expect(dialogSource).toContain('isDraftDirty')
+    expect(dialogSource).toContain('isSavedConfigUsable')
+    expect(dialogSource).toContain('downloadConfirmationVisible')
+    expect(dialogSource).toContain('dialogSessionId')
+    expect(dialogSource).toContain('activeOperation')
+    expect(dialogSource).toMatch(/function handleSave\(\) \{\s+if \(isBusy\.value/)
+    expect(dialogSource).toMatch(/async function handleTest\(\) \{\s+if \(isBusy\.value/)
+    expect(dialogSource).toMatch(/:checked="draft\.webdavEnabled"[\s\S]{0,160}:disabled="isBusy"/)
+    expect(dialogSource).toContain(':disabled="isBusy || downloadConfirmationVisible"')
+    expect(dialogSource).toContain('role="group"')
+    expect(dialogSource).toContain('webdavTestViaBackground')
+    expect(dialogSource).toContain('uploadSettings')
+    expect(dialogSource).toContain('downloadSettings')
+    expect(dialogSource).toContain('closeDialog')
+    expect(dialogSource).toContain('@click.self')
+    expect(saveHandler).toContain('testResult.value = \'\'')
+    expect(saveHandler).toContain('testResultSessionId = 0')
+
+    // Modal keyboard behavior is owned by the app-level capture listener and
+    // focus remains contained inside the Shadow DOM dialog.
+    expect(globalKeydownHandler).toContain('if (showWebdavSettingsDialog.value)')
+    expect(globalKeydownHandler).toContain('event.preventDefault()')
+    expect(globalKeydownHandler).toContain('event.stopPropagation()')
+    expect(globalKeydownHandler).toContain('event.stopImmediatePropagation()')
+    expect(globalKeydownHandler).toContain('closeWebdavSettingsDialog()')
+    expect(appSource).toContain('useEventListener(document, \'keydown\', handleGlobalKeydown, { capture: true })')
+    expect(appSource).toContain(':inert="showWebdavSettingsDialog"')
+    expect(dialogSource).toContain('const dialogRef = ref<HTMLElement | null>(null)')
+    expect(dialogSource).toContain('function handleTabKeydown')
+    expect(dialogSource).toContain('getRootNode()')
+    expect(dialogSource).toContain('root instanceof ShadowRoot')
+    expect(dialogSource).toContain('ref="dialogRef"')
+    expect(dialogSource).toContain('@keydown.tab="handleTabKeydown"')
+    expect(dialogSource).not.toContain('@keydown.escape="closeDialog"')
+    expect(dialogSource).not.toContain('webdavAutoSync')
+  })
+
   it('runs WebDAV network requests in the background to avoid content-script CORS', async () => {
     const webdavSource = await readFile(resolve('src/logic/webdav.ts'), 'utf8')
     const settingsSyncSource = await readFile(resolve('src/logic/settingsSync.ts'), 'utf8')
     const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
-    const dataSyncSource = await readFile(resolve('src/components/Settings/DataSync/DataSync.vue'), 'utf8')
     const backgroundSource = await readFile(resolve('src/background/index.ts'), 'utf8')
     const webdavListenerSource = await readFile(resolve('src/background/messageListeners/webdav.ts'), 'utf8')
     const manifestSource = await readFile(resolve('src/manifest.ts'), 'utf8')
@@ -1356,8 +1505,9 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(settingsSyncSource).not.toMatch(/\bwebdavUpload\(/)
     expect(settingsSyncSource).not.toMatch(/\bwebdavDownload\(/)
 
-    expect(appSource).toContain('webdavTestViaBackground')
-    expect(dataSyncSource).toContain('webdavTestViaBackground')
+    // Content-script App no longer touches WebDAV transports directly; the
+    // dialog component owns the background test call.
+    expect(appSource).not.toContain('webdavTestViaBackground')
 
     // The background wires up the WebDAV listener and performs the real fetch.
     expect(backgroundSource).toContain('setupWebdavMsgLstnrs')
@@ -1416,5 +1566,35 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(drawerSource).toContain('addEventListener(\'keydown\', handleIframeKeydown)')
     expect(drawerSource).toContain('import { applyLinuxDoDrawerChrome } from \'~/sites/linuxDo\'')
     expect(drawerSource).toContain('applyLinuxDoDrawerChrome(iframeRef.value?.contentDocument)')
+  })
+})
+
+describe('legacy settings tree deletion boundary', () => {
+  const localeFiles = [
+    'src/_locales/en.yml',
+    'src/_locales/cmn-CN.yml',
+    'src/_locales/cmn-TW.yml',
+    'src/_locales/jyut.yml',
+  ]
+
+  it('does not keep the unmounted legacy Settings component tree', async () => {
+    await expect(access(resolve('src/components/Settings'))).rejects.toThrow()
+  })
+
+  it.each(localeFiles)('removes the top-level settings: namespace from %s', async (localePath) => {
+    const localeSource = await readFile(resolve(localePath), 'utf8')
+
+    expect(localeSource).not.toMatch(/^settings:/m)
+    // Shared namespaces adjacent to the deleted mapping must remain.
+    expect(localeSource).toMatch(/^common:/m)
+    expect(localeSource).toMatch(/^iframe_drawer:/m)
+  })
+
+  it('does not ignore the deleted tree in knip configuration', async () => {
+    const knipSource = await readFile(resolve('knip.json'), 'utf8')
+    const knipConfig = JSON.parse(knipSource) as { ignore?: string[] }
+
+    expect(knipConfig.ignore ?? []).not.toContain('src/components/Settings/**')
+    expect(knipConfig.ignore ?? []).toContain('src/inject/**')
   })
 })
