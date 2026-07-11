@@ -453,6 +453,176 @@ The overlay reflects the host site's actual rendered scheme and follows runtime 
 
 ---
 
+## Scenario: WebDAV Versioned Backup State and Cross-Layer Sync
+
+### 1. Scope / Trigger
+
+- Trigger: changing WebDAV backup path semantics, versioned backup upload/retention, legacy-file compatibility, or selected-backup restore flow.
+- Applies to `src/logic/storage.ts`, `src/logic/settingsMigration.ts`, `src/logic/webdavSettings.ts`, `src/logic/webdavBackups.ts`, `src/logic/webdav.ts`, `src/background/messageListeners/webdav.ts`, `src/logic/settingsSync.ts`, `src/contentScripts/views/WebdavSettingsDialog.vue`, and the related WebDAV tests.
+- This requires code-spec depth because the feature crosses persisted settings, local-only migration metadata, content-script orchestration, background transport, and remote WebDAV request/response contracts.
+
+### 2. Signatures
+
+Persisted/local WebDAV settings fields:
+
+```typescript
+interface Settings {
+  webdavEnabled: boolean
+  webdavUrl: string
+  webdavUsername: string
+  webdavPassword: string
+  webdavPath: string
+  webdavLastSyncTime: number
+  webdavLegacyFilePath: string
+}
+```
+
+Core orchestration API:
+
+```typescript
+interface SettingsBackupSummary {
+  id: string
+  requestPath: string
+  fileName: string
+  source: 'versioned' | 'legacy'
+  timestampMs: number
+  sequence: number
+}
+
+type BackupListWarning = 'legacy_unreadable'
+
+type SyncWarning = 'cleanup_partial'
+
+type SyncErrorCode =
+  | 'path_invalid'
+  | 'directory_list_failed'
+  | 'invalid_multistatus'
+  | 'unsupported_href_format'
+  | 'parse_error'
+  | 'unsupported_version'
+  | 'upload_collision_exhausted'
+  | 'selected_backup_not_found'
+
+interface BackupListResult {
+  ok: boolean
+  backups?: readonly SettingsBackupSummary[]
+  warnings?: readonly BackupListWarning[]
+  error?: SyncErrorCode | string
+}
+
+interface SyncResult {
+  ok: boolean
+  warning?: SyncWarning
+  error?: SyncErrorCode | string
+}
+
+function listSettingsBackups(): Promise<BackupListResult>
+function uploadSettings(): Promise<SyncResult>
+function downloadSettings(selectedPath?: string): Promise<SyncResult>
+```
+
+Remote envelope contract:
+
+```typescript
+interface SyncEnvelope {
+  version: 1
+  timestamp: number
+  settings: Partial<Settings>
+  blockedWords: BlockedWordsState
+}
+```
+
+### 3. Contracts
+
+| Item | Contract |
+|---|---|
+| `webdavPath` | Persisted as a logical directory path, not a fixed file path; canonical form has leading `/` and trailing `/`, default `/bewly/`. |
+| `webdavLegacyFilePath` | Local-only compatibility locator for the migrated legacy single-file backup. It never enters uploaded `SyncEnvelope.settings`, but it must survive successful restore. |
+| Upload payload | `stripWebdavFields()` removes all local WebDAV config fields, including `webdavLegacyFilePath`, before upload. |
+| Restore payload | `retainedWebdavFields()` re-applies all local WebDAV fields, including `webdavLegacyFilePath`, after a valid remote envelope is parsed. |
+| `listSettingsBackups()` | Uses raw LIST XML plus `parseDirectoryListing(...)` in the content script, returns newest-first managed backups, and may include `legacy_unreadable` without failing healthy versioned backups. |
+| Directory 404 | A missing backup directory maps to a successful empty backup list, not a fatal error. |
+| Legacy exactness | Only the exact `webdavLegacyFilePath` candidate may be treated as a legacy backup. Other JSON files in the directory are never treated as legacy. |
+| Legacy timestamp source | A legacy backup participates in sort/retention only when its downloaded V1 envelope validates; `getlastmodified` is diagnostic only. |
+| Upload create-only | `uploadSettings()` must create a new versioned file first, then relist and delete extras. It must never overwrite an existing backup. |
+| Collision retries | `0001` through `0010` are the only allowed same-millisecond collision sequences. `412` retries immediately; non-`412` only retries when a successful directory list proves the exact candidate now exists. |
+| Cleanup warning | If relist, legacy validation, or delete cleanup cannot fully converge after a successful create, return `{ ok: true, warning: 'cleanup_partial' }` and keep the new backup. |
+| Selected restore | `downloadSettings(selectedPath)` must revalidate that the requested backup still exists in the current managed list (or exact legacy candidate) before GET. No selected path means `selected_backup_not_found`. |
+| State mutation boundary | Parse/list/download failures must not mutate `settings.value` or `blockedWords.value`. Successful restore applies the validated envelope atomically and updates `webdavLastSyncTime` to the selected envelope timestamp. |
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected handling |
+|---|---|
+| `webdavPath` fails normalization | Return `path_invalid` before any background request. |
+| LIST transport returns 404 | Return `{ ok: true, backups: [] }`. |
+| LIST XML is malformed or contains invalid `href` | Return `invalid_multistatus` / `unsupported_href_format`; do not mutate local state. |
+| Legacy file is absent from a successful directory list | Clear `webdavLegacyFilePath` silently; do not emit `legacy_unreadable`. |
+| Legacy file exists but GET/JSON/version validation fails | Omit the legacy entry, keep the locator, and return `legacy_unreadable`. |
+| Create-only upload returns `412` | Retry next sequence within the same timestamp. |
+| Create-only upload returns non-`412` and candidate is not proven to exist | Fail with the observable original error (or status-derived fallback); do not delete anything. |
+| Post-upload relist fails | Keep the new backup, update `webdavLastSyncTime`, return `cleanup_partial`, and skip delete attempts. |
+| Delete returns 404 | Treat as idempotent cleanup success. |
+| Selected backup is absent during revalidation | Return `selected_backup_not_found` without mutating local data. |
+| Selected backup GET/parse/version validation fails | Return the corresponding error without mutating local data. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: upload creates `bewly-settings-...-0001.json`, retries on collision, then deletes only the oldest excess managed backups, leaving unrelated files untouched.
+- Base: a directory with no managed backups returns an empty list and does not alter local settings.
+- Bad: restore falls back to the current `webdavPath` when no selected backup id is provided, or upload includes `webdavLegacyFilePath` inside the remote envelope.
+- Bad: a successful directory list that omits the legacy file still shows a compatibility warning instead of clearing the stale locator.
+
+### 6. Tests Required
+
+- Storage/migration tests must assert legacy single-file paths migrate to directory semantics plus `webdavLegacyFilePath`.
+- `settingsSync.spec.ts` must assert:
+  - upload strips local WebDAV fields from remote envelope settings;
+  - restore preserves local WebDAV fields including `webdavLegacyFilePath`;
+  - LIST 404 becomes an empty list;
+  - valid legacy files join the sorted backup list by envelope timestamp;
+  - unreadable legacy files yield `legacy_unreadable` without blocking healthy backups;
+  - create-only collision retry/exhaustion semantics;
+  - cleanup partial behavior on relist/delete failure;
+  - selected restore revalidation and `selected_backup_not_found` no-mutation behavior.
+- `webdavBackups.spec.ts` must assert managed filename parsing, strict `href` validation, and deterministic retention ordering.
+- `webdav.spec.ts` must assert LIST/DELETE/create-only transport boundaries and segment encoding.
+- Full verification includes `pnpm typecheck`, targeted WebDAV Vitest suites, and `pnpm build`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+async function downloadSettings(): Promise<SyncResult> {
+  const result = await webdavDownloadViaBackground(getWebdavConfig())
+  // always restores the current configured path
+}
+```
+
+This bypasses backup selection and can restore the wrong file after the user chose a different backup.
+
+#### Correct
+
+```typescript
+async function downloadSettings(selectedPath?: string): Promise<SyncResult> {
+  if (!selectedPath)
+    return { ok: false, error: 'selected_backup_not_found' }
+
+  const scanned = await scanRemoteBackups(config, 'empty')
+  const selectedBackup = scanned.backups.find(backup => backup.requestPath === selectedPath)
+  if (!selectedBackup)
+    return { ok: false, error: 'selected_backup_not_found' }
+
+  const downloaded = await downloadEnvelopeAtPath(config, selectedBackup.requestPath)
+  // apply only the validated selected envelope
+}
+```
+
+This keeps restore bound to the validated selected backup and leaves local state unchanged on revalidation failure.
+
+---
+
 ## State Categories
 
 | Category | Location | Notes |

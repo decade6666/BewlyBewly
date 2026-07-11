@@ -6,7 +6,7 @@ import type { wallpaperItem } from '~/constants/imgs'
 import type { HomeSubPage } from '~/contentScripts/views/Home/types'
 import type { AppPage } from '~/enums/appEnums'
 
-import { cleanLegacySettingsStorageValue, hasLegacySettingsFields, removeLegacySettingsFields } from './settingsMigration'
+import { cleanLegacySettingsStorageValue, hasLegacySettingsFields, migrateWebdavLegacyPath, removeLegacySettingsFields } from './settingsMigration'
 import { DEFAULT_WEBDAV_PATH } from './webdavSettings'
 
 const SETTINGS_STORAGE_KEY = 'settings'
@@ -127,6 +127,14 @@ export interface Settings {
   webdavPassword: string
   webdavPath: string
   webdavLastSyncTime: number
+  /**
+   * Local-only WebDAV metadata recording the original remote single-file path
+   * that was migrated into `webdavPath`. It must never be uploaded to or
+   * downloaded from the remote envelope, and it is preserved across restores
+   * so the legacy single-file candidate can still be listed/rotated until the
+   * user chooses a different directory or the file is deleted/confirmed gone.
+   */
+  webdavLegacyFilePath: string
 }
 
 export const originalSettings: Settings = {
@@ -241,6 +249,7 @@ export const originalSettings: Settings = {
   webdavPassword: '',
   webdavPath: DEFAULT_WEBDAV_PATH,
   webdavLastSyncTime: 0,
+  webdavLegacyFilePath: '',
 }
 
 export async function cleanupLegacySettingsStorage(): Promise<void> {
@@ -323,13 +332,26 @@ export async function migrateBlockedWordsToSync(): Promise<void> {
 
 void migrateBlockedWordsToSync()
 
+function normalizeInMemorySettings(value: Settings): Settings {
+  let next = value
+  if (hasLegacySettingsFields(value))
+    next = removeLegacySettingsFields(value) as Settings
+  // Migrate any legacy single-file `webdavPath` into the directory semantics
+  // and record the original path in `webdavLegacyFilePath`. Idempotent: a path
+  // that is already a directory is returned unchanged, so this is safe to run
+  // on every settings change without erasing a recorded locator.
+  next = migrateWebdavLegacyPath(next) as Settings
+  return next
+}
+
 watch(
   () => settings.value,
   (value) => {
-    if (!hasLegacySettingsFields(value))
+    const next = normalizeInMemorySettings(value)
+    if (next === value)
       return
 
-    settings.value = removeLegacySettingsFields(value) as Settings
+    settings.value = next
   },
   { deep: true, immediate: true },
 )

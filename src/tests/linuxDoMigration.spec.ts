@@ -133,13 +133,18 @@ describe('settings legacy field cleanup', () => {
       webdavAutoSync: true,
       webdavLocalModifiedTime: 789,
       webdavEnabled: true,
+      webdavPath: '/bewly/settings.json',
+      webdavLastSyncTime: 123,
       theme: 'dark',
     }
 
     expect(cleanLegacySettingsStorageValue(legacySettings)).toBe(JSON.stringify({
       hideHomePagePinnedTopics: false,
       webdavEnabled: true,
+      webdavPath: '/bewly/',
+      webdavLastSyncTime: 123,
       theme: 'dark',
+      webdavLegacyFilePath: '/bewly/settings.json',
     }))
   })
 
@@ -150,6 +155,7 @@ describe('settings legacy field cleanup', () => {
       webdavAutoSync: true,
       webdavLocalModifiedTime: 789,
       webdavEnabled: true,
+      webdavPath: '/bewly/settings.json',
       webdavLastSyncTime: 123,
       theme: 'dark',
     })
@@ -157,8 +163,10 @@ describe('settings legacy field cleanup', () => {
     expect(cleanLegacySettingsStorageValue(serializedSettings)).toBe(JSON.stringify({
       hideHomePagePinnedTopics: false,
       webdavEnabled: true,
+      webdavPath: '/bewly/',
       webdavLastSyncTime: 123,
       theme: 'dark',
+      webdavLegacyFilePath: '/bewly/settings.json',
     }))
     expect(cleanLegacySettingsStorageValue('not-json')).toBe('not-json')
   })
@@ -1326,6 +1334,7 @@ describe('linux.do content script and drawer boundaries', () => {
     const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
     const indexSource = await readFile(resolve('src/contentScripts/index.ts'), 'utf8')
     const settingsSyncSource = await readFile(resolve('src/logic/settingsSync.ts'), 'utf8')
+    const settingsMigrationSource = await readFile(resolve('src/logic/settingsMigration.ts'), 'utf8')
     const storageSource = await readFile(resolve('src/logic/storage.ts'), 'utf8')
     const logicIndexSource = await readFile(resolve('src/logic/index.ts'), 'utf8')
     const webdavSettingsSource = await readFile(resolve('src/logic/webdavSettings.ts'), 'utf8')
@@ -1373,6 +1382,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(storageSource).toContain('webdavPassword: string')
     expect(storageSource).toContain('webdavPath: string')
     expect(storageSource).toContain('webdavLastSyncTime: number')
+    expect(storageSource).toContain('webdavLegacyFilePath: string')
     expect(storageSource).not.toContain('webdavAutoSync: boolean')
     expect(storageSource).not.toContain('webdavLocalModifiedTime: number')
     expect(storageSource).not.toContain('webdavAutoSync: false')
@@ -1380,7 +1390,7 @@ describe('linux.do content script and drawer boundaries', () => {
 
     // The pure draft helper module is exported through the logic barrel.
     expect(logicIndexSource).toContain('webdavSettings')
-    expect(webdavSettingsSource).toContain('export const DEFAULT_WEBDAV_PATH = \'/bewly/settings.json\'')
+    expect(webdavSettingsSource).toContain('export const DEFAULT_WEBDAV_PATH = \'/bewly/\'')
     expect(webdavSettingsSource).toContain('export function copyWebdavDraft')
     expect(webdavSettingsSource).toContain('export function normalizeDraft')
     expect(webdavSettingsSource).toContain('export function validateSaveDraft')
@@ -1389,6 +1399,9 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(webdavSettingsSource).toContain('export function isSavedConfigUsable')
     expect(webdavSettingsSource).toContain('export function mergeWebdavFields')
     expect(webdavSettingsSource).toContain('export function isAbsoluteHttpUrl')
+    expect(settingsMigrationSource).toContain('export function migrateWebdavLegacyPath')
+    expect(settingsMigrationSource).toContain('webdavLegacyFilePath')
+    expect(settingsMigrationSource).toContain('return JSON.stringify(cleanSettingsRecord(value))')
 
     // The active panel owns only the WebDAV entry button plus the always-mounted
     // dialog instance. No inline fields, actions, status, or last-sync text.
@@ -1449,14 +1462,18 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(dialogSource).toContain('validateTestDraft')
     expect(dialogSource).toContain('isDraftDirty')
     expect(dialogSource).toContain('isSavedConfigUsable')
-    expect(dialogSource).toContain('downloadConfirmationVisible')
+    expect(dialogSource).toContain('WebdavBackupPicker')
+    expect(dialogSource).toContain('listSettingsBackups')
+    expect(dialogSource).toContain('clearBackupPicker')
+    expect(dialogSource).toContain('selectedBackupId')
+    expect(dialogSource).toContain('downloadButtonRef')
+    expect(dialogSource).toContain('pathInputRef')
     expect(dialogSource).toContain('dialogSessionId')
     expect(dialogSource).toContain('activeOperation')
     expect(dialogSource).toMatch(/function handleSave\(\) \{\s+if \(isBusy\.value/)
     expect(dialogSource).toMatch(/async function handleTest\(\) \{\s+if \(isBusy\.value/)
     expect(dialogSource).toMatch(/:checked="draft\.webdavEnabled"[\s\S]{0,160}:disabled="isBusy"/)
-    expect(dialogSource).toContain(':disabled="isBusy || downloadConfirmationVisible"')
-    expect(dialogSource).toContain('role="group"')
+    expect(dialogSource).not.toContain('downloadConfirmationVisible')
     expect(dialogSource).toContain('webdavTestViaBackground')
     expect(dialogSource).toContain('uploadSettings')
     expect(dialogSource).toContain('downloadSettings')
@@ -1497,11 +1514,16 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(webdavSource).toContain('enum WEBDAV_MESSAGE')
     expect(webdavSource).toContain('browser.runtime.sendMessage')
     expect(webdavSource).toContain('export function webdavTestViaBackground')
+    expect(webdavSource).toContain('export function webdavListViaBackground')
     expect(webdavSource).toContain('export function webdavUploadViaBackground')
     expect(webdavSource).toContain('export function webdavDownloadViaBackground')
+    expect(webdavSource).toContain('export function webdavDeleteViaBackground')
 
+    expect(settingsSyncSource).toContain('listSettingsBackups')
     expect(settingsSyncSource).toContain('webdavUploadViaBackground')
+    expect(settingsSyncSource).toContain('webdavListViaBackground')
     expect(settingsSyncSource).toContain('webdavDownloadViaBackground')
+    expect(settingsSyncSource).toContain('webdavDeleteViaBackground')
     expect(settingsSyncSource).not.toMatch(/\bwebdavUpload\(/)
     expect(settingsSyncSource).not.toMatch(/\bwebdavDownload\(/)
 
@@ -1512,8 +1534,10 @@ describe('linux.do content script and drawer boundaries', () => {
     // The background wires up the WebDAV listener and performs the real fetch.
     expect(backgroundSource).toContain('setupWebdavMsgLstnrs')
     expect(webdavListenerSource).toContain('webdavTest')
+    expect(webdavListenerSource).toContain('webdavList')
     expect(webdavListenerSource).toContain('webdavUpload')
     expect(webdavListenerSource).toContain('webdavDownload')
+    expect(webdavListenerSource).toContain('webdavDelete')
     expect(webdavListenerSource).toContain('browser.runtime.onMessage.addListener')
 
     // Background must be allowed to reach arbitrary WebDAV origins.

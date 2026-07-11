@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Load the frontend layer checklist and authoritative entry point before running task-wide checks."}
+{"file":".trellis/tasks/07-10-webdav-versioned-backups/research/webdav-versioned-backups.md","reason":"Check implementation against the verified protocol constraints, migration contract, retention algorithm, and edge-case matrix."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Apply repository lint, typecheck, test, build, metadata hygiene, and real-extension browser verification gates."}
+{"file":".trellis/spec/frontend/modal-accessibility.md","reason":"Verify the updated backup picker preserves Shadow DOM focus, keyboard, Escape, and async lifecycle behavior."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Verify persisted migration metadata and transient picker state remain at their intended boundaries."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review data and error contracts end-to-end across UI, content script, background worker, and WebDAV responses."}

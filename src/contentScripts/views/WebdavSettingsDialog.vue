@@ -6,6 +6,7 @@ import {
   downloadSettings,
   isDraftDirty,
   isSavedConfigUsable,
+  listSettingsBackups,
   mergeWebdavFields,
   normalizeDraft,
   settings,
@@ -14,6 +15,10 @@ import {
   validateTestDraft,
   webdavTestViaBackground,
 } from '~/logic'
+import type { SettingsBackupSummary } from '~/logic/webdavBackups'
+import type { WebdavValidationError } from '~/logic/webdavSettings'
+
+import WebdavBackupPicker from './WebdavBackupPicker.vue'
 
 interface WebdavSettingsLabels {
   webdavCancel: string
@@ -33,6 +38,7 @@ interface WebdavSettingsLabels {
   webdavNeverSynced: string
   webdavPassword: string
   webdavPath: string
+  webdavPathInvalid: string
   webdavSave: string
   webdavSaveSuccess: string
   webdavSettings: string
@@ -44,57 +50,56 @@ interface WebdavSettingsLabels {
   webdavUploadBusy: string
   webdavUploadFail: string
   webdavUploadSuccess: string
+  webdavUploadCleanupPartial: string
   webdavUrl: string
   webdavUrlInvalid: string
   webdavUrlPlaceholder: string
   webdavUrlRequired: string
   webdavUsername: string
+  webdavListBusy: string
+  webdavListEmpty: string
+  webdavListFail: string
+  webdavBackupSelectorLabel: string
+  webdavLegacyBackup: string
+  webdavLegacyUnreadable: string
+  webdavSelectedBackupNotFound: string
 }
-
 interface Props {
   visible: boolean
   labels: WebdavSettingsLabels
 }
-
 const props = defineProps<Props>()
 const emit = defineEmits<{ (event: 'close'): void }>()
-
-// ── Dialog session ──────────────────────────────────────────
+interface BackupPickerExposed {
+  focusFirstControl: () => void
+}
 let dialogSessionId = 0
-
-// ── Operation serialization ──────────────────────────────────
-type ActiveOperation = null | 'test' | 'upload' | 'download'
+type ActiveOperation = null | 'test' | 'upload' | 'list' | 'download'
 const activeOperation = ref<ActiveOperation>(null)
 let operationId = 0
-
-// ── Draft state ──────────────────────────────────────────────
 const draft = ref(copyWebdavDraft(settings.value))
-const fieldError = ref<string>('')
+const urlFieldError = ref<string>('')
+const pathFieldError = ref<string>('')
 const saveFeedback = ref<string>('')
-
-// ── Test result invalidation ─────────────────────────────────
 const testResult = ref<string>('')
 let testResultSessionId = 0
-
-// ── Transfer status retention (survives close/reopen) ────────
 const transferStatus = ref<string>('')
-
-// ── Download confirmation (inline, not a nested modal) ───────
-const downloadConfirmationVisible = ref(false)
-
-// ── Computed invariants ──────────────────────────────────────
+const listedBackups = ref<readonly SettingsBackupSummary[]>([])
+const selectedBackupId = ref<string>('')
+const backupPickerVisible = ref(false)
+const backupPickerWarnings = ref<readonly ('legacy_unreadable')[]>([])
+const downloadButtonRef = ref<HTMLButtonElement | null>(null)
+const backupPickerRef = ref<BackupPickerExposed | null>(null)
+const pathInputRef = ref<HTMLInputElement | null>(null)
 const isBusy = computed(() => activeOperation.value !== null)
 const isDirty = computed(() => isDraftDirty(draft.value, settings.value))
 const savedConfigUsable = computed(() => isSavedConfigUsable(settings.value))
 const canTransfer = computed(() => !isBusy.value && !isDirty.value && savedConfigUsable.value)
-
 const lastSyncText = computed(() => {
   if (!settings.value.webdavLastSyncTime)
     return props.labels.webdavNeverSynced
   return `${props.labels.webdavLastSync}: ${new Date(settings.value.webdavLastSyncTime).toLocaleString()}`
 })
-
-// ── Focus helpers ────────────────────────────────────────────
 const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -103,43 +108,45 @@ const FOCUSABLE_SELECTOR = [
   'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
-
 const dialogRef = ref<HTMLElement | null>(null)
 const enableSwitchRef = ref<HTMLInputElement | null>(null)
 const urlInputRef = ref<HTMLInputElement | null>(null)
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
-
 function focusFirstControl() {
   const target = isBusy.value ? closeButtonRef.value : enableSwitchRef.value ?? closeButtonRef.value
   target?.focus()
 }
-
+function focusDownloadTrigger() {
+  nextTick(() => {
+    if (downloadButtonRef.value) {
+      downloadButtonRef.value.focus()
+    }
+    else {
+      closeButtonRef.value?.focus()
+    }
+  })
+}
 function getFocusableElements(): HTMLElement[] {
   if (!dialogRef.value)
     return []
-
   return Array.from(dialogRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
     .filter(element => element.getClientRects().length > 0)
 }
-
 function getActiveElement(): Element | null {
   const root = dialogRef.value?.getRootNode()
   return root instanceof ShadowRoot ? root.activeElement : document.activeElement
 }
-
 function handleTabKeydown(event: KeyboardEvent) {
   const focusableElements = getFocusableElements()
   const first = focusableElements.at(0)
   const last = focusableElements.at(-1)
   const activeElement = getActiveElement()
   const focusOutsideDialog = !activeElement || !dialogRef.value?.contains(activeElement)
-
   if (!first || !last) {
     event.preventDefault()
     dialogRef.value?.focus()
     return
   }
-
   if (event.shiftKey && (activeElement === first || focusOutsideDialog)) {
     event.preventDefault()
     last.focus()
@@ -149,107 +156,106 @@ function handleTabKeydown(event: KeyboardEvent) {
     first.focus()
   }
 }
-
-// ── Open / close ────────────────────────────────────────────
+function clearBackupPicker() {
+  listedBackups.value = []
+  selectedBackupId.value = ''
+  backupPickerVisible.value = false
+  backupPickerWarnings.value = []
+}
 function initDraft() {
   draft.value = copyWebdavDraft(settings.value)
-  fieldError.value = ''
+  urlFieldError.value = ''
+  pathFieldError.value = ''
   saveFeedback.value = ''
   testResult.value = ''
   testResultSessionId = 0
-  downloadConfirmationVisible.value = false
+  clearBackupPicker()
 }
-
 function openDialog() {
   dialogSessionId++
   initDraft()
   nextTick(() => focusFirstControl())
 }
-
 function closeDialog() {
   dialogSessionId++
   // Discard transient state
-  fieldError.value = ''
+  urlFieldError.value = ''
+  pathFieldError.value = ''
   saveFeedback.value = ''
   testResult.value = ''
   testResultSessionId = 0
-  downloadConfirmationVisible.value = false
+  clearBackupPicker()
   // Keep activeOperation + transferStatus to retain in-flight requests
   emit('close')
 }
-
-// ── Draft feedback ────────────────────────────────────────────
 type WebdavTextField = 'webdavUrl' | 'webdavUsername' | 'webdavPassword' | 'webdavPath'
-
 function setDraftField<K extends keyof typeof draft.value>(key: K, value: (typeof draft.value)[K]) {
   if (isBusy.value)
     return
-
   draft.value = { ...draft.value, [key]: value }
   handleDraftEdit()
 }
-
 function handleEnabledChange(event: Event) {
   const input = event.target as HTMLInputElement
   setDraftField('webdavEnabled', input.checked)
 }
-
 function handleTextInput(field: WebdavTextField, event: Event) {
   const input = event.target as HTMLInputElement
   setDraftField(field, input.value)
 }
-
 function handleDraftEdit() {
-  fieldError.value = ''
+  urlFieldError.value = ''
+  pathFieldError.value = ''
   saveFeedback.value = ''
   testResult.value = ''
   testResultSessionId = 0
-  downloadConfirmationVisible.value = false
+  clearBackupPicker()
 }
-
-function showUrlError(error: 'url_required' | 'url_invalid') {
-  fieldError.value = error === 'url_required'
-    ? props.labels.webdavUrlRequired
-    : props.labels.webdavUrlInvalid
-  nextTick(() => urlInputRef.value?.focus())
+function showValidationError(error: WebdavValidationError) {
+  if (error === 'path_invalid') {
+    pathFieldError.value = props.labels.webdavPathInvalid
+    nextTick(() => pathInputRef.value?.focus())
+  }
+  else {
+    urlFieldError.value = error === 'url_required'
+      ? props.labels.webdavUrlRequired
+      : props.labels.webdavUrlInvalid
+    nextTick(() => urlInputRef.value?.focus())
+  }
 }
-
 function formatFailure(label: string, detail?: string): string {
   return detail ? `${label}: ${detail}` : label
 }
-
-// ── Save ────────────────────────────────────────────────────
 function handleSave() {
-  if (isBusy.value || downloadConfirmationVisible.value)
+  if (isBusy.value || backupPickerVisible.value)
     return
-
   const normalized = normalizeDraft(draft.value)
   const validationError = validateSaveDraft(normalized)
   if (validationError) {
-    showUrlError(validationError)
+    showValidationError(validationError)
     return
   }
-  fieldError.value = ''
+  urlFieldError.value = ''
+  pathFieldError.value = ''
   testResult.value = ''
   testResultSessionId = 0
   transferStatus.value = ''
+  clearBackupPicker()
   settings.value = mergeWebdavFields(settings.value, normalized)
   draft.value = copyWebdavDraft(settings.value)
   saveFeedback.value = props.labels.webdavSaveSuccess
 }
-
-// ── Test ────────────────────────────────────────────────────
 async function handleTest() {
-  if (isBusy.value || downloadConfirmationVisible.value)
+  if (isBusy.value || backupPickerVisible.value)
     return
-
   const normalized = normalizeDraft(draft.value)
   const validationError = validateTestDraft(normalized)
   if (validationError) {
-    showUrlError(validationError)
+    showValidationError(validationError)
     return
   }
-  fieldError.value = ''
+  urlFieldError.value = ''
+  pathFieldError.value = ''
   saveFeedback.value = ''
   testResult.value = ''
   testResultSessionId = 0
@@ -277,8 +283,6 @@ async function handleTest() {
       activeOperation.value = null
   }
 }
-
-// ── Upload ──────────────────────────────────────────────────
 async function handleUpload() {
   if (!canTransfer.value)
     return
@@ -289,55 +293,94 @@ async function handleUpload() {
     const result = await uploadSettings()
     if (activeOperation.value !== 'upload' || operationId !== currentOpId)
       return
-    transferStatus.value = result.ok
-      ? props.labels.webdavUploadSuccess
-      : formatFailure(props.labels.webdavUploadFail, result.error)
+    if (result.warning === 'cleanup_partial') {
+      transferStatus.value = props.labels.webdavUploadCleanupPartial
+    }
+    else if (result.ok) {
+      transferStatus.value = props.labels.webdavUploadSuccess
+    }
+    else {
+      transferStatus.value = formatFailure(props.labels.webdavUploadFail, result.error)
+    }
   }
   finally {
     if (activeOperation.value === 'upload' && operationId === currentOpId)
       activeOperation.value = null
   }
 }
-
-// ── Download ─────────────────────────────────────────────────
-function showDownloadConfirm() {
+async function handleListBackups() {
   if (!canTransfer.value)
     return
-  downloadConfirmationVisible.value = true
+  const currentOpId = ++operationId
+  const sessionId = dialogSessionId
+  activeOperation.value = 'list'
+  transferStatus.value = props.labels.webdavListBusy
+  try {
+    const result = await listSettingsBackups()
+    if (!props.visible || dialogSessionId !== sessionId)
+      return
+    if (activeOperation.value !== 'list' || operationId !== currentOpId)
+      return
+    if (!result.ok) {
+      transferStatus.value = props.labels.webdavListFail
+      focusDownloadTrigger()
+      return
+    }
+    const backups = result.backups ?? []
+    if (backups.length === 0) {
+      transferStatus.value = props.labels.webdavListEmpty
+      focusDownloadTrigger()
+      return
+    }
+    listedBackups.value = backups
+    selectedBackupId.value = backups[0]?.id ?? ''
+    backupPickerWarnings.value = result.warnings ?? []
+    backupPickerVisible.value = true
+    transferStatus.value = ''
+    nextTick(() => backupPickerRef.value?.focusFirstControl())
+  }
+  finally {
+    if (activeOperation.value === 'list' && operationId === currentOpId)
+      activeOperation.value = null
+  }
 }
-
-function cancelDownloadConfirm() {
-  downloadConfirmationVisible.value = false
+function handleBackupSelection(backupId: string) {
+  selectedBackupId.value = backupId
 }
-
+function cancelBackupPicker() {
+  backupPickerVisible.value = false
+  clearBackupPicker()
+  focusDownloadTrigger()
+}
 async function confirmDownload() {
-  if (!canTransfer.value)
+  if (!canTransfer.value || !selectedBackupId.value)
     return
-
-  downloadConfirmationVisible.value = false
+  backupPickerVisible.value = false
   const currentOpId = ++operationId
   activeOperation.value = 'download'
   transferStatus.value = props.labels.webdavDownloadBusy
-
   try {
-    const result = await downloadSettings()
-
+    const result = await downloadSettings(selectedBackupId.value)
     if (activeOperation.value !== 'download' || operationId !== currentOpId)
       return
-
-    if (result.ok)
+    if (result.ok) {
       transferStatus.value = props.labels.webdavDownloadSuccess
-    else if (result.error === 'remote_not_found')
+    }
+    else if (result.error === 'selected_backup_not_found') {
+      transferStatus.value = props.labels.webdavSelectedBackupNotFound
+    }
+    else if (result.error === 'remote_not_found') {
       transferStatus.value = props.labels.webdavDownloadNotFound
-    else
+    }
+    else {
       transferStatus.value = formatFailure(props.labels.webdavDownloadFail, result.error)
+    }
   }
   finally {
     if (activeOperation.value === 'download' && operationId === currentOpId)
       activeOperation.value = null
   }
 }
-
 watch(() => props.visible, (v) => {
   if (v)
     openDialog()
@@ -359,7 +402,6 @@ watch(() => props.visible, (v) => {
       tabindex="-1"
       @keydown.tab="handleTabKeydown"
     >
-      <!-- Header -->
       <header class="webdav-dialog-header">
         <h2 id="webdav-dialog-title">
           {{ labels.webdavSettings }}
@@ -374,10 +416,7 @@ watch(() => props.visible, (v) => {
           <span i-mingcute:close-line aria-hidden="true" />
         </button>
       </header>
-
-      <!-- Body -->
       <div class="webdav-dialog-body">
-        <!-- Enable switch -->
         <label class="webdav-dialog-option">
           <input
             ref="enableSwitchRef"
@@ -389,8 +428,6 @@ watch(() => props.visible, (v) => {
           >
           <span>{{ labels.webdavEnable }}</span>
         </label>
-
-        <!-- URL -->
         <label class="webdav-dialog-field">
           <span>{{ labels.webdavUrl }}</span>
           <input
@@ -399,13 +436,11 @@ watch(() => props.visible, (v) => {
             type="url"
             :placeholder="labels.webdavUrlPlaceholder"
             :disabled="isBusy"
-            :aria-invalid="fieldError ? 'true' : 'false'"
-            :aria-describedby="fieldError ? 'webdav-dialog-url-error' : undefined"
+            :aria-invalid="urlFieldError ? 'true' : 'false'"
+            :aria-describedby="urlFieldError ? 'webdav-dialog-url-error' : undefined"
             @input="handleTextInput('webdavUrl', $event)"
           >
         </label>
-
-        <!-- Username -->
         <label class="webdav-dialog-field">
           <span>{{ labels.webdavUsername }}</span>
           <input
@@ -415,8 +450,6 @@ watch(() => props.visible, (v) => {
             @input="handleTextInput('webdavUsername', $event)"
           >
         </label>
-
-        <!-- Password -->
         <label class="webdav-dialog-field">
           <span>{{ labels.webdavPassword }}</span>
           <input
@@ -426,29 +459,29 @@ watch(() => props.visible, (v) => {
             @input="handleTextInput('webdavPassword', $event)"
           >
         </label>
-
-        <!-- Path -->
         <label class="webdav-dialog-field">
           <span>{{ labels.webdavPath }}</span>
           <input
+            ref="pathInputRef"
             :value="draft.webdavPath"
             type="text"
             :disabled="isBusy"
+            :aria-invalid="pathFieldError ? 'true' : 'false'"
+            :aria-describedby="pathFieldError ? 'webdav-dialog-path-error' : undefined"
             @input="handleTextInput('webdavPath', $event)"
           >
         </label>
-
-        <!-- Field error -->
-        <p v-if="fieldError" id="webdav-dialog-url-error" class="webdav-dialog-error" role="alert">
-          {{ fieldError }}
+        <p v-if="urlFieldError" id="webdav-dialog-url-error" class="webdav-dialog-error" role="alert">
+          {{ urlFieldError }}
         </p>
-
-        <!-- Save / Cancel -->
+        <p v-if="pathFieldError" id="webdav-dialog-path-error" class="webdav-dialog-error" role="alert">
+          {{ pathFieldError }}
+        </p>
         <div class="webdav-dialog-actions">
           <button
             class="webdav-dialog-primary-button"
             type="button"
-            :disabled="isBusy || downloadConfirmationVisible"
+            :disabled="isBusy || backupPickerVisible"
             @click="handleSave"
           >
             {{ labels.webdavSave }}
@@ -461,16 +494,12 @@ watch(() => props.visible, (v) => {
             {{ isBusy ? labels.webdavClose : labels.webdavCancel }}
           </button>
         </div>
-
-        <!-- Separator -->
         <hr class="webdav-dialog-separator">
-
-        <!-- Operations -->
         <div class="webdav-dialog-actions">
           <button
             class="webdav-dialog-secondary-button"
             type="button"
-            :disabled="isBusy || downloadConfirmationVisible"
+            :disabled="isBusy || backupPickerVisible"
             @click="handleTest"
           >
             {{ isBusy && activeOperation === 'test' ? labels.webdavTestBusy : labels.webdavTestConnection }}
@@ -478,74 +507,58 @@ watch(() => props.visible, (v) => {
           <button
             class="webdav-dialog-secondary-button"
             type="button"
-            :disabled="!canTransfer || downloadConfirmationVisible"
+            :disabled="!canTransfer || backupPickerVisible"
             @click="handleUpload"
           >
             {{ isBusy && activeOperation === 'upload' ? labels.webdavUploadBusy : labels.webdavUpload }}
           </button>
-          <template v-if="!downloadConfirmationVisible">
+          <template v-if="!backupPickerVisible">
             <button
+              ref="downloadButtonRef"
               class="webdav-dialog-secondary-button"
               type="button"
               :disabled="!canTransfer"
-              @click="showDownloadConfirm"
+              @click="handleListBackups"
             >
-              {{ isBusy && activeOperation === 'download' ? labels.webdavDownloadBusy : labels.webdavDownload }}
+              {{ isBusy && (activeOperation === 'list' || activeOperation === 'download') ? labels.webdavDownloadBusy : labels.webdavDownload }}
             </button>
           </template>
         </div>
-
-        <!-- Download confirmation (inline) -->
-        <div
-          v-if="downloadConfirmationVisible"
-          class="webdav-dialog-confirm"
-          role="group"
-          :aria-label="labels.webdavDownloadWarning"
-        >
-          <p>{{ labels.webdavDownloadWarning }}</p>
-          <div class="webdav-dialog-actions">
-            <button
-              class="webdav-dialog-secondary-button"
-              type="button"
-              :disabled="!canTransfer"
-              @click="confirmDownload"
-            >
-              {{ labels.webdavDownloadConfirm }}
-            </button>
-            <button
-              class="webdav-dialog-secondary-button"
-              type="button"
-              @click="cancelDownloadConfirm"
-            >
-              {{ labels.webdavDownloadCancel }}
-            </button>
-          </div>
+        <div v-if="backupPickerVisible" class="webdav-dialog-confirm">
+          <WebdavBackupPicker
+            ref="backupPickerRef"
+            :backups="listedBackups"
+            :selected-backup-id="selectedBackupId"
+            :disabled="isBusy"
+            :labels="{
+              webdavBackupSelectorLabel: labels.webdavBackupSelectorLabel,
+              webdavLegacyBackup: labels.webdavLegacyBackup,
+              webdavLegacyUnreadable: labels.webdavLegacyUnreadable,
+              webdavDownloadWarning: labels.webdavDownloadWarning,
+              webdavDownloadConfirm: labels.webdavDownloadConfirm,
+              webdavDownloadCancel: labels.webdavDownloadCancel,
+            }"
+            :warnings="backupPickerWarnings"
+            @select="handleBackupSelection"
+            @confirm="confirmDownload"
+            @cancel="cancelBackupPicker"
+          />
         </div>
-
-        <!-- Transfer hint while dirty or config disabled -->
         <p v-if="isDirty && !isBusy" class="webdav-dialog-hint">
           {{ labels.webdavDirtyHint }}
         </p>
         <p v-else-if="!savedConfigUsable && !isDirty && !isBusy" class="webdav-dialog-hint">
           {{ labels.webdavDisabledHint }}
         </p>
-
-        <!-- Save feedback -->
         <p v-if="saveFeedback" class="webdav-dialog-feedback" role="status" aria-live="polite">
           {{ saveFeedback }}
         </p>
-
-        <!-- Test result (only shown when fresh in current session) -->
         <p v-if="testResultSessionId === dialogSessionId && testResult" class="webdav-dialog-status" role="status" aria-live="polite">
           {{ testResult }}
         </p>
-
-        <!-- Transfer status -->
         <p v-if="transferStatus" class="webdav-dialog-status" role="status" aria-live="polite">
           {{ transferStatus }}
         </p>
-
-        <!-- Last sync -->
         <p class="webdav-dialog-hint">
           {{ lastSyncText }}
         </p>
@@ -566,7 +579,6 @@ watch(() => props.visible, (v) => {
   background: rgb(0 0 0 / 45%);
   pointer-events: auto;
 }
-
 .webdav-dialog {
   box-sizing: border-box;
   display: flex;
@@ -581,7 +593,6 @@ watch(() => props.visible, (v) => {
   border-radius: var(--bew-radius);
   box-shadow: 0 24px 60px hsl(220deg 40% 2% / 28%);
 }
-
 .webdav-dialog-header {
   display: flex;
   flex-shrink: 0;
@@ -589,14 +600,12 @@ watch(() => props.visible, (v) => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
-
   h2 {
     margin: 0;
     font-size: 16px;
     font-weight: 700;
   }
 }
-
 .webdav-dialog-close-button {
   display: flex;
   flex-shrink: 0;
@@ -609,7 +618,6 @@ watch(() => props.visible, (v) => {
   border: 1px solid var(--bew-border-color);
   border-radius: 8px;
   cursor: pointer;
-
   &:hover,
   &:focus-visible {
     color: var(--bew-theme-color);
@@ -617,28 +625,24 @@ watch(() => props.visible, (v) => {
     outline: none;
   }
 }
-
 .webdav-dialog-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
-
 .webdav-dialog-option {
   display: flex;
   gap: 10px;
   align-items: center;
   font-size: 14px;
   cursor: pointer;
-
   input {
     width: 16px;
     height: 16px;
     accent-color: var(--bew-theme-color);
   }
 }
-
 .webdav-dialog-field {
   display: flex;
   flex-direction: column;
@@ -646,11 +650,9 @@ watch(() => props.visible, (v) => {
   font-size: 13px;
   color: var(--bew-text-2);
 }
-
 .webdav-dialog-field span {
   line-height: 1.4;
 }
-
 .webdav-dialog-field input {
   width: 100%;
   min-width: 0;
@@ -661,19 +663,16 @@ watch(() => props.visible, (v) => {
   background: var(--bew-fill-1);
   border: 1px solid var(--bew-border-color);
   border-radius: 8px;
-
   &:focus-visible {
     border-color: var(--bew-theme-color);
     outline: none;
   }
 }
-
 .webdav-dialog-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-
 .webdav-dialog-primary-button {
   min-height: 34px;
   padding: 0 14px;
@@ -682,19 +681,16 @@ watch(() => props.visible, (v) => {
   border: 1px solid var(--bew-theme-color);
   border-radius: 8px;
   cursor: pointer;
-
   &:hover:not(:disabled),
   &:focus-visible:not(:disabled) {
     opacity: 0.85;
     outline: none;
   }
-
   &:disabled {
     cursor: not-allowed;
     opacity: 0.55;
   }
 }
-
 .webdav-dialog-secondary-button {
   min-height: 34px;
   padding: 0 10px;
@@ -703,20 +699,17 @@ watch(() => props.visible, (v) => {
   border: 1px solid var(--bew-border-color);
   border-radius: 8px;
   cursor: pointer;
-
   &:hover:not(:disabled),
   &:focus-visible:not(:disabled) {
     color: var(--bew-theme-color);
     background: var(--bew-fill-2);
     outline: none;
   }
-
   &:disabled {
     cursor: not-allowed;
     opacity: 0.55;
   }
 }
-
 .webdav-dialog-separator {
   width: 100%;
   height: 0;
@@ -724,38 +717,27 @@ watch(() => props.visible, (v) => {
   border: 0;
   border-top: 1px solid var(--bew-border-color);
 }
-
 .webdav-dialog-confirm {
   padding: 10px;
   background: var(--bew-fill-1);
   border: 1px solid var(--bew-border-color);
   border-radius: 8px;
-
-  p {
-    margin: 0 0 8px;
-    font-size: 13px;
-  }
 }
-
 .webdav-dialog-hint,
 .webdav-dialog-feedback,
 .webdav-dialog-status {
   margin: 0;
   font-size: 12px;
 }
-
 .webdav-dialog-hint {
   color: var(--bew-text-2);
 }
-
 .webdav-dialog-feedback {
   color: var(--bew-theme-color);
 }
-
 .webdav-dialog-status {
   color: var(--bew-theme-color);
 }
-
 .webdav-dialog-error {
   margin: 0;
   color: var(--bew-error-color);

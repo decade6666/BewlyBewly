@@ -10,6 +10,7 @@ import {
   isSavedConfigUsable,
   mergeWebdavFields,
   normalizeDraft,
+  normalizeWebdavDirectoryPath,
   validateSaveDraft,
   validateTestDraft,
 } from '../logic/webdavSettings'
@@ -31,7 +32,7 @@ const baseRetained = {
   webdavUrl: '',
   webdavUsername: '',
   webdavPassword: '',
-  webdavPath: '/bewly/settings.json',
+  webdavPath: '/bewly/',
 }
 
 describe('webdavSettings draft copy', () => {
@@ -41,7 +42,7 @@ describe('webdavSettings draft copy', () => {
       webdavUrl: 'https://example.com/dav',
       webdavUsername: 'user',
       webdavPassword: 'pass',
-      webdavPath: '/custom/path.json',
+      webdavPath: '/custom/path/',
       theme: 'dark',
       language: 'en',
     })
@@ -53,7 +54,7 @@ describe('webdavSettings draft copy', () => {
       webdavUrl: 'https://example.com/dav',
       webdavUsername: 'user',
       webdavPassword: 'pass',
-      webdavPath: '/custom/path.json',
+      webdavPath: '/custom/path/',
     })
     expect(draft).not.toHaveProperty('theme')
     expect(draft).not.toHaveProperty('language')
@@ -108,22 +109,34 @@ describe('webdavSettings normalizeDraft', () => {
     expect(normalized.webdavPassword).toBe('  pass word  ')
   })
 
-  it('replaces an empty path with the default path', () => {
+  it('normalizes an empty path into the default directory path', () => {
     const normalized = normalizeDraft({ ...baseRetained, webdavPath: '' })
 
     expect(normalized.webdavPath).toBe(DEFAULT_WEBDAV_PATH)
   })
 
-  it('replaces a whitespace-only path with the default path', () => {
+  it('normalizes a whitespace-only path into the default directory path', () => {
     const normalized = normalizeDraft({ ...baseRetained, webdavPath: '   ' })
 
     expect(normalized.webdavPath).toBe(DEFAULT_WEBDAV_PATH)
   })
 
-  it('preserves a non-empty custom path', () => {
-    const normalized = normalizeDraft({ ...baseRetained, webdavPath: '/custom/path.json' })
+  it('normalizes a directory-shaped path so it keeps leading and trailing slashes', () => {
+    const normalized = normalizeDraft({ ...baseRetained, webdavPath: '/custom/path' })
 
-    expect(normalized.webdavPath).toBe('/custom/path.json')
+    expect(normalized.webdavPath).toBe('/custom/path/')
+  })
+
+  it('normalizes a bare directory name into the canonical directory form', () => {
+    const normalized = normalizeDraft({ ...baseRetained, webdavPath: 'bewly' })
+
+    expect(normalized.webdavPath).toBe('/bewly/')
+  })
+
+  it('preserves significant spaces inside nonblank directory path segments', () => {
+    const normalized = normalizeDraft({ ...baseRetained, webdavPath: ' reports /Q1 2026 ' })
+
+    expect(normalized.webdavPath).toBe('/ reports /Q1 2026 /')
   })
 
   it('returns a new object without mutating the input', () => {
@@ -185,7 +198,7 @@ describe('webdavSettings isDraftDirty', () => {
     const source = makeSettings({
       webdavEnabled: true,
       webdavUrl: 'https://example.com/dav',
-      webdavPath: '/bewly/settings.json',
+      webdavPath: '/bewly/',
     })
 
     const draft = copyWebdavDraft(source)
@@ -218,6 +231,22 @@ describe('webdavSettings isSavedConfigUsable', () => {
     expect(isSavedConfigUsable(makeSettings({ webdavEnabled: true, webdavUrl: 'ftp://example.com/dav' }))).toBe(false)
     expect(isSavedConfigUsable(makeSettings({ webdavEnabled: true, webdavUrl: 'https://example.com/dav' }))).toBe(true)
   })
+
+  it('rejects a saved config whose directory path is invalid even when the URL is valid', () => {
+    expect(isSavedConfigUsable(makeSettings({
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: '/bewly/../etc/',
+    }))).toBe(false)
+  })
+
+  it('rejects a saved config whose directory path contains a lone surrogate', () => {
+    expect(isSavedConfigUsable(makeSettings({
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: `/bewly/${'\uD83D'}/`,
+    }))).toBe(false)
+  })
 })
 
 describe('webdavSettings mergeWebdavFields', () => {
@@ -247,5 +276,180 @@ describe('webdavSettings mergeWebdavFields', () => {
 
     expect(merged.theme).toBe('dark')
     expect(merged.webdavEnabled).toBe(true)
+  })
+})
+
+describe('webdavSettings directory path normalization', () => {
+  it('exposes the default synced path as the directory `/bewly/`', () => {
+    expect(DEFAULT_WEBDAV_PATH).toBe('/bewly/')
+  })
+
+  it.each([
+    ['/bewly/', '/bewly/'],
+    ['/bewly', '/bewly/'],
+    ['bewly', '/bewly/'],
+    ['bewly/', '/bewly/'],
+    ['/custom/path/', '/custom/path/'],
+    ['/custom/path', '/custom/path/'],
+    ['custom/path', '/custom/path/'],
+    ['/  /  ', '/  /  /'],
+    ['', '/bewly/'],
+    ['   ', '/bewly/'],
+    ['/', '/'],
+  ])('normalizes %p into %p without mutating input', (input, expected) => {
+    const result = normalizeWebdavDirectoryPath(input)
+
+    expect(result.ok).toBe(true)
+    if (result.ok)
+      expect(result.path).toBe(expected)
+    // Immutability: the input string is primitive, but the helper must not
+    // throw or rely on external mutation.
+  })
+
+  it('preserves significant leading and trailing spaces within a relative directory segment', () => {
+    const result = normalizeWebdavDirectoryPath(' reports ')
+
+    expect(result).toEqual({ ok: true, path: '/ reports /' })
+  })
+
+  it('rejects path segments that traverse outside the chosen directory', () => {
+    expect(normalizeWebdavDirectoryPath('/bewly/../etc/')).toEqual({ ok: false, error: 'path_invalid' })
+    expect(normalizeWebdavDirectoryPath('/bewly/./settings')).toEqual({ ok: false, error: 'path_invalid' })
+    expect(normalizeWebdavDirectoryPath('..')).toEqual({ ok: false, error: 'path_invalid' })
+  })
+
+  it('rejects control characters in the directory path', () => {
+    expect(normalizeWebdavDirectoryPath('/bewly/\x00/')).toEqual({ ok: false, error: 'path_invalid' })
+    expect(normalizeWebdavDirectoryPath('/bewly/\x07/')).toEqual({ ok: false, error: 'path_invalid' })
+    expect(normalizeWebdavDirectoryPath('/bewly/\x1F/')).toEqual({ ok: false, error: 'path_invalid' })
+  })
+
+  it('rejects path segments that cannot be safely encoded', () => {
+    expect(normalizeWebdavDirectoryPath(`/bewly/${'\uD83D'}/`)).toEqual({ ok: false, error: 'path_invalid' })
+  })
+
+  it('returns a discriminated result and never mutates a shared input object', () => {
+    const input = { path: '/bewly' } as { path: string }
+    const result = normalizeWebdavDirectoryPath(input.path)
+
+    expect(result).toEqual({ ok: true, path: '/bewly/' })
+    expect(input.path).toBe('/bewly')
+  })
+})
+
+describe('webdavSettings directory path validation on Save and Test', () => {
+  const absoluteUrl = 'https://example.com/dav'
+  const goodDirectory = '/bewly/'
+  const traversalPath = '/bewly/../etc/'
+  const controlCharPath = `/bewly/${'\x00'}/`
+
+  it('rejects a Save with a path-traversal directory before any background call', () => {
+    expect(validateSaveDraft({
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: absoluteUrl,
+      webdavPath: traversalPath,
+    })).toBe('path_invalid')
+  })
+
+  it('rejects a Save with a control-character directory', () => {
+    expect(validateSaveDraft({
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: absoluteUrl,
+      webdavPath: controlCharPath,
+    })).toBe('path_invalid')
+  })
+
+  it('accepts a Save with a valid absolute URL and canonical directory path', () => {
+    expect(validateSaveDraft({
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: absoluteUrl,
+      webdavPath: goodDirectory,
+    })).toBeNull()
+  })
+
+  it('still validates the URL first on Test, then the directory path', () => {
+    expect(validateTestDraft({
+      ...baseRetained,
+      webdavEnabled: false,
+      webdavUrl: '',
+      webdavPath: traversalPath,
+    })).toBe('url_required')
+    expect(validateTestDraft({
+      ...baseRetained,
+      webdavEnabled: false,
+      webdavUrl: absoluteUrl,
+      webdavPath: traversalPath,
+    })).toBe('path_invalid')
+    expect(validateTestDraft({
+      ...baseRetained,
+      webdavEnabled: false,
+      webdavUrl: absoluteUrl,
+      webdavPath: goodDirectory,
+    })).toBeNull()
+  })
+})
+
+describe('webdavSettings legacy locator visibility and clearing', () => {
+  it('does not surface the local-only legacy locator in a copied draft', () => {
+    const source = makeSettings({ webdavLegacyFilePath: '/bewly/settings.json' })
+
+    const draft = copyWebdavDraft(source)
+
+    expect(draft).not.toHaveProperty('webdavLegacyFilePath')
+  })
+
+  it('clears the legacy locator when the saved directory no longer matches it', () => {
+    const current = makeSettings({ webdavLegacyFilePath: '/bewly/settings.json' })
+    const saved = mergeWebdavFields(current, {
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: '/custom/',
+    })
+
+    expect(saved.webdavLegacyFilePath).toBe('')
+  })
+
+  it('preserves a matching legacy locator when the saved directory still contains it', () => {
+    const current = makeSettings({ webdavLegacyFilePath: '/bewly/settings.json' })
+    const saved = mergeWebdavFields(current, {
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: '/bewly/',
+    })
+
+    expect(saved.webdavLegacyFilePath).toBe('/bewly/settings.json')
+  })
+
+  it('does not mutate the input current settings while merging', () => {
+    const current = makeSettings({ webdavLegacyFilePath: '/bewly/settings.json' })
+
+    mergeWebdavFields(current, {
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: '/custom/',
+    })
+
+    expect(current.webdavLegacyFilePath).toBe('/bewly/settings.json')
+  })
+})
+
+describe('webdavSettings validation error contract surface', () => {
+  it('exposes `path_invalid` as a validation error kind', () => {
+    // The validation error union must include the new directory error so the
+    // dialog can dispatch URL vs path field errors separately.
+    const traversalError = validateSaveDraft({
+      ...baseRetained,
+      webdavEnabled: true,
+      webdavUrl: 'https://example.com/dav',
+      webdavPath: '/bewly/../etc/',
+    })
+
+    expect(traversalError).toBe('path_invalid')
   })
 })

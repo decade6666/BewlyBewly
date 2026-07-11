@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Load the authoritative frontend layer index and discover the required component, state, accessibility, and quality guidance."}
+{"file":".trellis/tasks/07-10-webdav-versioned-backups/research/webdav-versioned-backups.md","reason":"Use the verified current call graph, RFC 4918 constraints, migration design inputs, and versioned-backup test matrix."}
+{"file":".trellis/spec/frontend/modal-accessibility.md","reason":"Preserve the Shadow DOM dialog focus, Escape, inert-surface, and async-close contracts while adding backup selection."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Follow persisted Settings defaults, migration, local-only metadata, and transient component-state boundaries."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Keep the existing content-script dialog ownership, localization, stable classes, and accessibility conventions."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Maintain explicit contracts across the Vue UI, sync service, runtime messaging, background worker, and WebDAV server."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Extend the current WebDAV transport and dialog helpers without duplicating path, filename, or validation logic."}
