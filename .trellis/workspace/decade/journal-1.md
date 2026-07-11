@@ -665,3 +665,36 @@ Removed legacy settings UI and WebDAV auto-sync, added the manual WebDAV configu
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: 收敛 lint / knip 历史噪音
+
+**Date**: 2026-07-11
+**Task**: 收敛 lint / knip 历史噪音
+**Branch**: `chore/lint-knip-noise-cleanup`
+
+### Summary
+
+修正 ESLint flat-config 忽略边界，收窄 Knip 历史忽略范围，并同步更新前端质量规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1fdaa720` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

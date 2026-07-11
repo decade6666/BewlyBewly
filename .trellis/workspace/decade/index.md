@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 20
+- **Total Sessions**: 21
 - **Last Active**: 2026-07-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~668 | Active |
+| `journal-1.md` | ~700 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 21 | 2026-07-11 | 收敛 lint / knip 历史噪音 | `1fdaa720` | `chore/lint-knip-noise-cleanup` |
 | 20 | 2026-07-11 | WebDAV 版本化备份发布 | `85660b68` | `main` |
 | 19 | 2026-07-10 | Manual WebDAV settings dialog | `634b124b`, `e709101c`, `214c2694` | `main` |
 | 18 | 2026-07-08 | 默认从一楼打开 Linux.do 帖子抽屉 | `76c242ce`, `73979837` | `main` |
