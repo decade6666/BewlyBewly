@@ -286,6 +286,7 @@ Site cleanup option fields:
 ```typescript
 interface LinuxDoHomePageCleanupOptions {
   hidePinnedTopics: boolean
+  hideCommunityGuidelines?: boolean
   enableBlockedWords: boolean
   blockedWords: string[]
 }
@@ -314,16 +315,19 @@ invalid /pattern/   -> ignored; cleanup must not throw
 | `homePageBlockedWords` | `Settings` | `string[]` | `[]` | Persisted blocked-word list shown in the floating settings panel. |
 | `enableBlockedWords` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime switch consumed by the site helper. |
 | `blockedWords` | `LinuxDoHomePageCleanupOptions` | `string[]` | `[]` | Runtime list consumed by the site helper. |
+| `hideCommunityGuidelines` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime switch for the community guidelines banner; independent of topic-item reasons. |
 | `pinned-topic` | DOM hidden reason | string token | n/a | Reason token for pinned-topic cleanup. |
 | `blocked-word` | DOM hidden reason | string token | n/a | Reason token for blocked-word cleanup. |
+| `community-guidelines` | DOM hidden reason | string token | n/a | Reason token for community guidelines banner cleanup. Space-free so multi-kind encoding via space-separated `data-bewly-home-page-hidden` stays unambiguous. |
 
 The content script remains the boundary mapper:
 
 ```typescript
 hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  enableBlockedWords: settings.value.enableHomePageBlockedWords,
-  blockedWords: settings.value.homePageBlockedWords,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
+  enableBlockedWords: blockedWords.value.enabled,
+  blockedWords: [...blockedWords.value.words],
 })
 ```
 
@@ -333,26 +337,31 @@ hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
 |---|---|
 | URL is not `https://linux.do/` or `https://linux.do/latest` | Return without changing topic items, regardless of blocked-word settings. |
 | `enableBlockedWords` is `false` | Restore only the `blocked-word` reason and preserve any other active reason. |
+| `hideCommunityGuidelines` is `false` | Restore only the `community-guidelines` reason; leave pinned-topic / blocked-word markers untouched. |
 | `blockedWords` contains empty or whitespace-only entries | Ignore those entries. |
 | `blockedWords` contains plain text | Match topic item text case-insensitively using substring semantics. |
 | `blockedWords` contains `/pattern/` | Compile a case-insensitive `RegExp` and match topic item text. |
 | `blockedWords` contains invalid regex text | Ignore the invalid regex; do not throw from cleanup or break other rules. |
 | Topic item matches both pinned and blocked-word rules | Closing one switch must not restore the item while the other reason is still active. |
+| Banner is hidden under `community-guidelines` while a pinned topic is also hidden | Toggling either switch restores only its own kind. |
 | Cleanup runs repeatedly through `MutationObserver` | Do not rewrite the same hide-reason markers unnecessarily. |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: a topic with text `Rust release` is hidden by `rust` or `/r.st/`, and remains hidden if it is also pinned after blocked-word cleanup is disabled.
+- Good: disabling community guidelines cleanup restores the banner while pinned-topic / blocked-word hides stay intact.
 - Base: an empty blocked-word list produces no blocked-word hides and does not affect pinned-topic cleanup.
 - Bad: storing only one `data-bewly-home-page-hidden` reason means disabling blocked words can accidentally reveal pinned topics.
 - Bad: compiling user-provided regex without a guard makes a malformed `/[/` entry crash every cleanup pass.
+- Bad: reusing a space-containing kind token so multi-kind `data-bewly-home-page-hidden` encoding becomes ambiguous.
 
 ### 6. Tests Required
 
 - Regression tests for plain keyword matching, regex matching, empty ignored entries, and invalid regex non-crash.
 - Regression tests for disabling blocked-word cleanup after an earlier hide and preserving previous inline `display` values.
 - Regression tests for overlap: pinned-topic and blocked-word reasons must restore independently.
-- Source boundary tests should assert `src/contentScripts/index.ts` maps `enableHomePageBlockedWords` to `enableBlockedWords` and watches both the switch and list.
+- Regression tests for overlap: pinned-topic and community-guidelines reasons must restore independently.
+- Source boundary tests should assert `src/contentScripts/index.ts` maps blocked-word state from the sync store and `hideHomePageCommunityGuidelines` → `hideCommunityGuidelines`.
 - Component source tests should assert the floating settings panel exposes the blocked-word switch/list and keeps `role="dialog"` boundaries.
 - Run targeted `src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, and `pnpm lint` after changing this flow.
 
@@ -374,8 +383,9 @@ This single-reason model restores an element even when another active cleanup re
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  enableBlockedWords: settings.value.enableHomePageBlockedWords,
-  blockedWords: settings.value.homePageBlockedWords,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
+  enableBlockedWords: blockedWords.value.enabled,
+  blockedWords: [...blockedWords.value.words],
 })
 ```
 
