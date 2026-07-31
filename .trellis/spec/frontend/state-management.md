@@ -25,6 +25,7 @@ Settings storage fields:
 ```typescript
 interface Settings {
   hideHomePagePinnedTopics: boolean
+  hideHomePageCommunityGuidelines: boolean
 }
 ```
 
@@ -33,6 +34,7 @@ Site cleanup option fields:
 ```typescript
 interface LinuxDoHomePageCleanupOptions {
   hidePinnedTopics: boolean
+  hideCommunityGuidelines?: boolean
 }
 
 function hideLinuxDoHomePageElements(
@@ -57,7 +59,9 @@ function removeLegacySettingsFields<T extends object>(value: T): Omit<T, 'hideHo
 |---|---|---:|---:|---|
 | `hideHomePagePinnedTopics` | `Settings` | `boolean` | `true` | Persisted user preference for hiding Linux.do homepage pinned topics. |
 | `hidePinnedTopics` | `LinuxDoHomePageCleanupOptions` | `boolean` | `true` | Runtime DOM cleanup switch consumed by `hideLinuxDoHomePageElements`. |
-| `hideHomePageGuidelineBanner` | Legacy storage cleanup | `boolean` | n/a | Deprecated persisted field that must be removed from browser-local `settings` without dropping other values. |
+| `hideHomePageCommunityGuidelines` | `Settings` | `boolean` | `false` | Persisted user preference for hiding the homepage community guidelines banner. Intentionally distinct from the removed legacy key. |
+| `hideCommunityGuidelines` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime DOM cleanup switch for the community guidelines banner. |
+| `hideHomePageGuidelineBanner` | Legacy storage cleanup | `boolean` | n/a | Deprecated persisted field that must be removed from browser-local `settings` without dropping other values. The reintroduced feature uses `hideHomePageCommunityGuidelines` instead. |
 | cleaned browser-local `settings` | Legacy storage cleanup output | `string` | n/a | `useStorageAsync` expects serialized storage values, so cleanup must write a JSON string even when the old raw value is object-shaped. |
 
 The content script is the boundary mapper:
@@ -65,8 +69,11 @@ The content script is the boundary mapper:
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
 })
 ```
+
+Community guidelines detection is layered: Discourse structural selectors (`#banner`, `#banner-content`, `.custom-banner`, escape hatch) first, whitespace-normalized text fallback second. Structural hits still require a guidelines text signal (fail-safe). Protected layout ancestors/descendants and a 200-character normalized-text ceiling must never be hidden.
 
 ### 4. Validation & Error Matrix
 
@@ -74,28 +81,35 @@ hideLinuxDoHomePageElements(document, location.href, {
 |---|---|
 | URL is not the Linux.do homepage | Return without changing DOM, regardless of option values. |
 | `hidePinnedTopics` is `false` | Leave pinned topic display untouched. |
-| `options` is omitted | Use default cleanup behavior: hide pinned topics only. |
+| `options` is omitted | Use default cleanup behavior: hide pinned topics only; leave the community guidelines banner visible. |
 | Pinned topic cleanup changes from `true` to `false` after rows/cards were hidden | Restore only pinned topic elements hidden by Bewly cleanup and preserve their previous inline `display` value. |
-| Guideline banner contains `《社区准则》` text on the homepage | Leave the banner untouched; guideline banner cleanup is not a supported feature. |
-| Browser-local `settings` contains `hideHomePageGuidelineBanner` | Remove only that key and preserve all other stored setting values. |
+| `hideCommunityGuidelines` is `false` | Leave the community guidelines banner visible. |
+| `hideCommunityGuidelines` is `true` and a safe banner is found | Hide only the banner container via the multi-kind hide primitive; leave search hero, nav pills, and topic list untouched. |
+| `#banner` exists without community guidelines text | Leave it untouched (fail-safe). |
+| Guideline text lives under a parent that also contains `.topic-list` / `.nav-pills` / `#main-outlet` | Hide only the deepest safe element; never hide that parent. |
+| Guideline text is placed directly on `body` / `#main-container` / `#main-outlet` / `#main-outlet-wrapper` | Leave those layout containers untouched. |
+| Community guidelines cleanup changes from `true` to `false` after hiding | Restore only elements hidden under the `community-guidelines` kind and preserve previous inline `display`. |
+| Browser-local `settings` contains `hideHomePageGuidelineBanner` | Remove only that key and preserve all other stored setting values, including `hideHomePageCommunityGuidelines` when present. |
 | Browser-local `settings` cleanup receives an object-shaped raw value | Return a JSON string of the cleaned object before writing back, so VueUse object serializer can read it on the next load. |
 | New persisted setting lacks a default in `originalSettings` | Typecheck or regression tests should fail; add the default before shipping. |
-| Locale key missing for a new settings label | UI text will be incomplete; add keys in both `src/_locales/en.yml` and `src/_locales/cmn-CN.yml`. |
+| Locale key missing for a new settings label | UI text will be incomplete; add keys in the floating panel's inline `appMessages` (four locales). |
 
 ### 5. Good/Base/Bad Cases
 
-- Good: a new homepage cleanup setting is added to `Settings`, `originalSettings`, both locale files, the settings UI, the content-script mapper, the site helper options, and regression tests.
+- Good: a new homepage cleanup setting is added to `Settings`, `originalSettings`, floating-panel labels, the content-script mapper, the site helper options, and regression tests.
 - Base: a removed homepage cleanup setting also removes UI, locale keys, content-script mapping, helper logic, docs, and cleans its legacy stored field when applicable.
 - Bad: the content script reads `settings.value` but passes the whole persisted settings object directly to `hideLinuxDoHomePageElements`, leaking storage naming into the site helper contract.
 - Bad: legacy cleanup writes an object directly to browser-local `settings`, causing the next `useStorageAsync` read to pass a non-string value into `JSON.parse`.
+- Bad: reusing the legacy key `hideHomePageGuidelineBanner` for the reintroduced feature, which the migration layer would silently strip.
 
 ### 6. Tests Required
 
 - Unit/regression tests for `hideLinuxDoHomePageElements` must assert pinned topics hide by default and can stay visible when `hidePinnedTopics` is `false`.
 - Regression tests must assert disabling cleanup after an earlier hide restores only Bewly-hidden pinned topics and preserves previous inline `display` values.
-- Regression tests must assert guideline banner elements remain visible on homepage cleanup runs.
-- Boundary tests should assert `src/contentScripts/index.ts` maps `settings.value.hideHomePagePinnedTopics` to `hidePinnedTopics` and does not reference `hideHomePageGuidelineBanner` or `hideGuidelineBanner`.
-- Storage migration tests should assert legacy `hideHomePageGuidelineBanner` is removed from stored settings while unrelated values are preserved.
+- Regression tests must assert the community guidelines banner stays visible when `hideCommunityGuidelines` is `false` / omitted, and is hidden safely when `true`.
+- Regression tests must assert structural fail-safe, protected-container guards, idempotent re-runs, multi-kind independence, and non-homepage no-ops for the community guidelines path.
+- Boundary tests should assert `src/contentScripts/index.ts` maps both `hideHomePagePinnedTopics` → `hidePinnedTopics` and `hideHomePageCommunityGuidelines` → `hideCommunityGuidelines`, and still does not reference the legacy identifiers `hideHomePageGuidelineBanner` / `hideGuidelineBanner`.
+- Storage migration tests should assert legacy `hideHomePageGuidelineBanner` is removed from stored settings while unrelated values (including the new key) are preserved.
 - Storage migration tests should assert object-shaped legacy raw values are cleaned into serialized JSON strings for VueUse compatibility.
 - Run `pnpm typecheck` so missing `Settings` fields/defaults are caught.
 
@@ -114,6 +128,7 @@ This couples the site helper to the persisted storage schema and makes future st
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
 })
 ```
 
@@ -271,6 +286,7 @@ Site cleanup option fields:
 ```typescript
 interface LinuxDoHomePageCleanupOptions {
   hidePinnedTopics: boolean
+  hideCommunityGuidelines?: boolean
   enableBlockedWords: boolean
   blockedWords: string[]
 }
@@ -299,16 +315,19 @@ invalid /pattern/   -> ignored; cleanup must not throw
 | `homePageBlockedWords` | `Settings` | `string[]` | `[]` | Persisted blocked-word list shown in the floating settings panel. |
 | `enableBlockedWords` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime switch consumed by the site helper. |
 | `blockedWords` | `LinuxDoHomePageCleanupOptions` | `string[]` | `[]` | Runtime list consumed by the site helper. |
+| `hideCommunityGuidelines` | `LinuxDoHomePageCleanupOptions` | `boolean` | `false` | Runtime switch for the community guidelines banner; independent of topic-item reasons. |
 | `pinned-topic` | DOM hidden reason | string token | n/a | Reason token for pinned-topic cleanup. |
 | `blocked-word` | DOM hidden reason | string token | n/a | Reason token for blocked-word cleanup. |
+| `community-guidelines` | DOM hidden reason | string token | n/a | Reason token for community guidelines banner cleanup. Space-free so multi-kind encoding via space-separated `data-bewly-home-page-hidden` stays unambiguous. |
 
 The content script remains the boundary mapper:
 
 ```typescript
 hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  enableBlockedWords: settings.value.enableHomePageBlockedWords,
-  blockedWords: settings.value.homePageBlockedWords,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
+  enableBlockedWords: blockedWords.value.enabled,
+  blockedWords: [...blockedWords.value.words],
 })
 ```
 
@@ -318,26 +337,31 @@ hideLinuxDoHomePageElements(document, cleanupUrlOverride ?? location.href, {
 |---|---|
 | URL is not `https://linux.do/` or `https://linux.do/latest` | Return without changing topic items, regardless of blocked-word settings. |
 | `enableBlockedWords` is `false` | Restore only the `blocked-word` reason and preserve any other active reason. |
+| `hideCommunityGuidelines` is `false` | Restore only the `community-guidelines` reason; leave pinned-topic / blocked-word markers untouched. |
 | `blockedWords` contains empty or whitespace-only entries | Ignore those entries. |
 | `blockedWords` contains plain text | Match topic item text case-insensitively using substring semantics. |
 | `blockedWords` contains `/pattern/` | Compile a case-insensitive `RegExp` and match topic item text. |
 | `blockedWords` contains invalid regex text | Ignore the invalid regex; do not throw from cleanup or break other rules. |
 | Topic item matches both pinned and blocked-word rules | Closing one switch must not restore the item while the other reason is still active. |
+| Banner is hidden under `community-guidelines` while a pinned topic is also hidden | Toggling either switch restores only its own kind. |
 | Cleanup runs repeatedly through `MutationObserver` | Do not rewrite the same hide-reason markers unnecessarily. |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: a topic with text `Rust release` is hidden by `rust` or `/r.st/`, and remains hidden if it is also pinned after blocked-word cleanup is disabled.
+- Good: disabling community guidelines cleanup restores the banner while pinned-topic / blocked-word hides stay intact.
 - Base: an empty blocked-word list produces no blocked-word hides and does not affect pinned-topic cleanup.
 - Bad: storing only one `data-bewly-home-page-hidden` reason means disabling blocked words can accidentally reveal pinned topics.
 - Bad: compiling user-provided regex without a guard makes a malformed `/[/` entry crash every cleanup pass.
+- Bad: reusing a space-containing kind token so multi-kind `data-bewly-home-page-hidden` encoding becomes ambiguous.
 
 ### 6. Tests Required
 
 - Regression tests for plain keyword matching, regex matching, empty ignored entries, and invalid regex non-crash.
 - Regression tests for disabling blocked-word cleanup after an earlier hide and preserving previous inline `display` values.
 - Regression tests for overlap: pinned-topic and blocked-word reasons must restore independently.
-- Source boundary tests should assert `src/contentScripts/index.ts` maps `enableHomePageBlockedWords` to `enableBlockedWords` and watches both the switch and list.
+- Regression tests for overlap: pinned-topic and community-guidelines reasons must restore independently.
+- Source boundary tests should assert `src/contentScripts/index.ts` maps blocked-word state from the sync store and `hideHomePageCommunityGuidelines` → `hideCommunityGuidelines`.
 - Component source tests should assert the floating settings panel exposes the blocked-word switch/list and keeps `role="dialog"` boundaries.
 - Run targeted `src/tests/linuxDoMigration.spec.ts`, `pnpm typecheck`, and `pnpm lint` after changing this flow.
 
@@ -359,8 +383,9 @@ This single-reason model restores an element even when another active cleanup re
 ```typescript
 hideLinuxDoHomePageElements(document, location.href, {
   hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
-  enableBlockedWords: settings.value.enableHomePageBlockedWords,
-  blockedWords: settings.value.homePageBlockedWords,
+  hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
+  enableBlockedWords: blockedWords.value.enabled,
+  blockedWords: [...blockedWords.value.words],
 })
 ```
 

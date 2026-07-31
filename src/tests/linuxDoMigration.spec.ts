@@ -251,7 +251,7 @@ describe('linux.do discourse URL helpers', () => {
 })
 
 describe('linux.do homepage cleanup', () => {
-  it('keeps the homepage guideline banner visible by default while hiding pinned topics', () => {
+  it('keeps the homepage guideline banner visible when community guidelines cleanup is off while hiding pinned topics', () => {
     document.body.innerHTML = `
       <main>
         <section class="welcome-banner" data-testid="guideline-banner">
@@ -305,7 +305,7 @@ describe('linux.do homepage cleanup', () => {
     expect(mutations).toEqual([])
   })
 
-  it('keeps split guideline banner text visible while hiding homepage pinned topics', () => {
+  it('keeps split guideline banner text visible when community guidelines cleanup is off while hiding homepage pinned topics', () => {
     document.body.innerHTML = `
       <main>
         <div id="main-outlet" data-testid="page-wrapper">
@@ -398,7 +398,7 @@ describe('linux.do homepage cleanup', () => {
     expect(normalCard?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('keeps the homepage guideline banner visible when pinned topic cleanup is enabled', () => {
+  it('keeps the homepage guideline banner visible when only pinned topic cleanup is enabled', () => {
     document.body.innerHTML = `
       <main>
         <section class="welcome-banner" data-testid="guideline-banner">
@@ -647,7 +647,7 @@ describe('linux.do homepage cleanup', () => {
     expect(pinnedBlockedTopic?.style.getPropertyValue('display')).toBe('')
   })
 
-  it('keeps screenshot-style homepage guideline strip visible while hiding real pinned topic rows', () => {
+  it('keeps screenshot-style homepage guideline strip visible when community guidelines cleanup is off while hiding real pinned topic rows', () => {
     document.body.innerHTML = `
       <main>
         <header data-testid="hero">Where possible begins</header>
@@ -737,6 +737,371 @@ describe('linux.do homepage cleanup', () => {
 
     expect(banner?.style.getPropertyValue('display')).toBe('')
     expect(pinnedTopic?.style.getPropertyValue('display')).toBe('')
+  })
+})
+
+describe('linux.do homepage community guidelines banner', () => {
+  const GUIDELINE_TEXT = '真诚、友善、团结、专业，共建你我引以为荣之社区。《社区准则》'
+
+  function isHiddenImportant(element: HTMLElement | null): boolean {
+    return element?.style.getPropertyValue('display') === 'none'
+      && element.style.getPropertyPriority('display') === 'important'
+  }
+
+  it('hides the official Discourse banner markup without touching nav or topic list', () => {
+    document.body.innerHTML = `
+      <div id="main-outlet" data-testid="main-outlet">
+        <div class="container" data-testid="banner-shell">
+          <div class="row">
+            <div id="banner" data-testid="guideline-banner">
+              <div class="floated-buttons"><button type="button">Close</button></div>
+              <div id="banner-content">${GUIDELINE_TEXT}</div>
+            </div>
+          </div>
+        </div>
+        <div class="list-controls">
+          <ul class="nav-pills" data-testid="nav-pills"><li class="active"><a href="/latest">最新</a></li></ul>
+        </div>
+        <table class="topic-list" data-testid="topic-list">
+          <tbody>
+            <tr class="topic-list-item" data-testid="normal-topic"><td>Normal topic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    const shell = document.querySelector<HTMLElement>('[data-testid="banner-shell"]')
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+    const mainOutlet = document.querySelector<HTMLElement>('[data-testid="main-outlet"]')
+    const nav = document.querySelector<HTMLElement>('[data-testid="nav-pills"]')
+    const topicList = document.querySelector<HTMLElement>('[data-testid="topic-list"]')
+    const normalTopic = document.querySelector<HTMLElement>('[data-testid="normal-topic"]')
+
+    expect(isHiddenImportant(shell) || isHiddenImportant(banner)).toBe(true)
+    expect(mainOutlet?.style.getPropertyValue('display')).toBe('')
+    expect(nav?.style.getPropertyValue('display')).toBe('')
+    expect(topicList?.style.getPropertyValue('display')).toBe('')
+    expect(normalTopic?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides #banner-content when #banner is missing', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="banner-content" data-testid="guideline-banner">${GUIDELINE_TEXT}</div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
+  })
+
+  it('does not hide a structural banner without community guidelines text', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="banner" data-testid="maintenance-banner">
+          <div id="banner-content">服务器维护公告：今晚 23:00 起短暂停服。</div>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="maintenance-banner"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('hides the shared parent of split guideline text without touching #main-outlet', () => {
+    document.body.innerHTML = `
+      <div id="main-outlet" data-testid="page-wrapper">
+        <div class="custom-homepage-banner" data-testid="guideline-banner">
+          <span>真诚、友善、团结、专业，共建你我引以为荣之社区。</span>
+          <a href="/guidelines">《社区准则》</a>
+        </div>
+        <table>
+          <tbody>
+            <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: true,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="page-wrapper"]')?.style.getPropertyValue('display')).toBe('')
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="pinned-topic"]'))).toBe(true)
+  })
+
+  it('lifts a single-paragraph text banner into its equal-text outer shell', () => {
+    document.body.innerHTML = `
+      <main>
+        <div class="site-intro-strip" data-testid="guideline-banner">
+          <p>${GUIDELINE_TEXT}</p>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
+  })
+
+  it('never hides a parent that also contains the topic list', () => {
+    document.body.innerHTML = `
+      <div class="wrap" data-testid="wrap">
+        <p data-testid="guideline-text">${GUIDELINE_TEXT}</p>
+        <table class="topic-list" data-testid="topic-list">
+          <tbody>
+            <tr class="topic-list-item" data-testid="normal-topic"><td>Normal topic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-text"]'))).toBe(true)
+    expect(document.querySelector<HTMLElement>('[data-testid="wrap"]')?.style.getPropertyValue('display')).toBe('')
+    expect(document.querySelector<HTMLElement>('[data-testid="topic-list"]')?.style.getPropertyValue('display')).toBe('')
+    expect(document.querySelector<HTMLElement>('[data-testid="normal-topic"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it.each([
+    '#main-container',
+    '#main-outlet',
+    '#main-outlet-wrapper',
+  ] as const)('does not hide protected layout container %s that directly carries guideline text', (label) => {
+    document.body.innerHTML = `<div id="${label.slice(1)}" data-testid="layout">${GUIDELINE_TEXT}</div>`
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="layout"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('does not hide body when guideline text is placed directly on it', () => {
+    document.body.textContent = GUIDELINE_TEXT
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.body.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('protects the welcome-banner search hero while still hiding #banner', () => {
+    document.body.innerHTML = `
+      <main>
+        <div class="welcome-banner" data-testid="search-hero">
+          <h1>Where possible begins</h1>
+          <input type="search" placeholder="搜索">
+        </div>
+        <div id="banner" data-testid="guideline-banner">
+          <div id="banner-content">${GUIDELINE_TEXT}</div>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="search-hero"]')?.style.getPropertyValue('display')).toBe('')
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
+  })
+
+  it('does not hide oversized containers that only partially match guideline text', () => {
+    const padding = 'x'.repeat(500)
+    document.body.innerHTML = `
+      <main>
+        <div data-testid="oversized">${GUIDELINE_TEXT}${padding}</div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="oversized"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('does not rewrite guideline banner attributes on repeated cleanup runs', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="banner" data-testid="guideline-banner">
+          <div id="banner-content">${GUIDELINE_TEXT}</div>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+      ?? document.querySelector<HTMLElement>('.container')
+
+    if (!banner)
+      throw new Error('Expected guideline banner fixture')
+
+    const mutations: MutationRecord[] = []
+    const observer = new MutationObserver(records => mutations.push(...records))
+
+    observer.observe(banner, { attributes: true })
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    observer.disconnect()
+
+    expect(mutations).toEqual([])
+  })
+
+  it('restores the guideline banner when cleanup is disabled after hiding', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="banner" data-testid="guideline-banner" style="display: block;">
+          <div id="banner-content">${GUIDELINE_TEXT}</div>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: false,
+    })
+
+    const banner = document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')
+
+    expect(banner?.style.getPropertyValue('display')).toBe('block')
+    expect(banner?.hasAttribute('data-bewly-home-page-hidden')).toBe(false)
+    expect(banner?.hasAttribute('data-bewly-home-page-previous-display')).toBe(false)
+    expect(banner?.hasAttribute('data-bewly-home-page-previous-display-priority')).toBe(false)
+  })
+
+  it('keeps pinned-topic and community-guidelines kinds independent', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="banner" data-testid="guideline-banner">
+          <div id="banner-content">${GUIDELINE_TEXT}</div>
+        </div>
+        <table>
+          <tbody>
+            <tr class="topic-list-item pinned" data-testid="pinned-topic"><td>Pinned topic</td></tr>
+          </tbody>
+        </table>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: true,
+      hideCommunityGuidelines: true,
+    })
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: true,
+      hideCommunityGuidelines: false,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')?.style.getPropertyValue('display')).toBe('')
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="pinned-topic"]'))).toBe(true)
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
+    expect(document.querySelector<HTMLElement>('[data-testid="pinned-topic"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it.each([
+    'https://linux.do/c/general',
+    'https://linux.do/t/welcome/123',
+  ])('does not hide the guideline banner on non-homepage page %s', (url) => {
+    document.body.innerHTML = `
+      <div id="banner" data-testid="guideline-banner">
+        <div id="banner-content">${GUIDELINE_TEXT}</div>
+      </div>
+    `
+
+    hideLinuxDoHomePageElements(document, url, {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]')?.style.getPropertyValue('display')).toBe('')
+  })
+
+  it('is a no-op on empty documents', () => {
+    document.body.innerHTML = ''
+
+    expect(() => hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })).not.toThrow()
+  })
+
+  it('re-hides the guideline banner after Ember-style re-render', () => {
+    document.body.innerHTML = `
+      <main data-testid="root">
+        <div id="banner" data-testid="guideline-banner">
+          <div id="banner-content">${GUIDELINE_TEXT}</div>
+        </div>
+      </main>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    const root = document.querySelector<HTMLElement>('[data-testid="root"]')
+    if (!root)
+      throw new Error('Expected root fixture')
+
+    root.innerHTML = `
+      <div id="banner" data-testid="guideline-banner">
+        <div id="banner-content">${GUIDELINE_TEXT}</div>
+      </div>
+    `
+
+    hideLinuxDoHomePageElements(document, 'https://linux.do/', {
+      hidePinnedTopics: false,
+      hideCommunityGuidelines: true,
+    })
+
+    expect(isHiddenImportant(document.querySelector<HTMLElement>('[data-testid="guideline-banner"]'))).toBe(true)
   })
 })
 
@@ -1271,6 +1636,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('hideLinuxDoHomePageElements(document, cleanupUrl, {')
     expect(entrySource).toContain('renderLinuxDoHomePageTopicTags(document, cleanupUrl, settings.value.showHomePageTopicTags)')
     expect(entrySource).toContain('hidePinnedTopics: settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines')
     expect(entrySource).toContain('enableBlockedWords: blockedWords.value.enabled')
     expect(entrySource).toContain('blockedWords: [...blockedWords.value.words]')
     expect(entrySource).not.toContain('hideGuidelineBanner')
@@ -1278,6 +1644,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(entrySource).toContain('observer.observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true })')
     expect(entrySource).toContain('watch(')
     expect(entrySource).toContain('settings.value.hideHomePagePinnedTopics')
+    expect(entrySource).toContain('settings.value.hideHomePageCommunityGuidelines')
     expect(entrySource).toContain('settings.value.showHomePageTopicTags')
     expect(entrySource).toContain('blockedWords.value.enabled')
     expect(entrySource).toContain('...blockedWords.value.words')
@@ -1291,27 +1658,37 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(appSource).toContain('useEventListener(window, \'popstate\', handlePopState)')
     expect(appSource).toContain('class="linux-do-settings-button"')
     expect(appSource).toContain('settings.hideHomePagePinnedTopics')
+    expect(appSource).toContain('settings.hideHomePageCommunityGuidelines')
     expect(appSource).toContain('settings.showHomePageTopicTags')
     expect(appSource).toContain('blockedWords.enabled')
     expect(appSource).toContain('blockedWords.words')
     expect(appSource).toContain('handleBlockedWordsImport')
     expect(appSource).toContain('handleBlockedWordsExport')
-    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
+    expect(appSource).toContain('hideCommunityGuidelines:')
+    expect(appSource).toContain('Hide homepage community guidelines banner')
+    expect(appSource).toContain('屏蔽首页社区准则横幅')
+    expect(appSource).toContain('屏蔽首頁社區準則橫幅')
+    expect(appSource).toContain('收埋首頁社區準則橫幅')
+    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner/)
     expect(appSource).toContain('import IframeDrawer from \'~/components/IframeDrawer.vue\'')
     expect(drawerSource).toContain('import Button from \'~/components/Button.vue\'')
     expect(source).not.toMatch(blockedLegacyTargets)
     expect(source).not.toMatch(/bili-header|home-redesign-base|bilibili-gate-root/i)
   })
 
-  it('removes guideline banner controls, locale keys, and settings defaults', async () => {
+  it('wires the community guidelines setting while keeping the legacy key cleaned', async () => {
     const appSource = await readFile(resolve('src/contentScripts/views/App.vue'), 'utf8')
     const storageSource = await readFile(resolve('src/logic/storage.ts'), 'utf8')
     const migrationSource = await readFile(resolve('src/logic/settingsMigration.ts'), 'utf8')
     const enLocaleSource = await readFile(resolve('src/_locales/en.yml'), 'utf8')
     const cmnCNLocaleSource = await readFile(resolve('src/_locales/cmn-CN.yml'), 'utf8')
 
-    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner|Hide homepage guideline banner|隐藏首页社区准则横幅/)
+    expect(appSource).not.toMatch(/hideGuidelineBanner|hideHomePageGuidelineBanner/)
+    expect(appSource).toContain('settings.hideHomePageCommunityGuidelines')
+    expect(appSource).toContain('hideCommunityGuidelines:')
     expect(storageSource).not.toContain('hideHomePageGuidelineBanner')
+    expect(storageSource).toContain('hideHomePageCommunityGuidelines: boolean')
+    expect(storageSource).toContain('hideHomePageCommunityGuidelines: false')
     expect(storageSource).toContain('showHomePageTopicTags: boolean')
     expect(storageSource).toContain('showHomePageTopicTags: true')
     // Blocked words moved out of local Settings into storage.sync so they
@@ -1326,6 +1703,7 @@ describe('linux.do content script and drawer boundaries', () => {
     expect(storageSource).toContain('void cleanupLegacySettingsStorage()')
     expect(storageSource).toContain('cleanLegacySettingsStorageValue(storedSettings)')
     expect(migrationSource).toContain('const LEGACY_SETTINGS_KEYS = [\'hideHomePageGuidelineBanner\', \'webdavAutoSync\', \'webdavLocalModifiedTime\'] as const')
+    expect(migrationSource).not.toContain('hideHomePageCommunityGuidelines')
     expect(enLocaleSource).not.toContain('hide_homepage_guideline_banner')
     expect(cmnCNLocaleSource).not.toContain('hide_homepage_guideline_banner')
   })

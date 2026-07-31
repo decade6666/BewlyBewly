@@ -58,6 +58,7 @@ function setupLinuxDoHomePageCleanup() {
   watch(
     () => [
       settings.value.hideHomePagePinnedTopics,
+      settings.value.hideHomePageCommunityGuidelines,
       settings.value.showHomePageTopicTags,
       blockedWords.value.enabled,
       ...blockedWords.value.words,
@@ -77,6 +78,7 @@ function cleanupLinuxDoHomePage() {
 
   hideLinuxDoHomePageElements(document, cleanupUrl, {
     hidePinnedTopics: settings.value.hideHomePagePinnedTopics,
+    hideCommunityGuidelines: settings.value.hideHomePageCommunityGuidelines,
     enableBlockedWords: blockedWords.value.enabled,
     blockedWords: [...blockedWords.value.words],
   })

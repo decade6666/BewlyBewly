@@ -39,6 +39,7 @@ const appMessages = {
     deleteBlockedWord: 'Delete blocked word',
     enableBlockedWords: 'Enable homepage blocked words',
     exportBlockedWords: 'Export',
+    hideCommunityGuidelines: 'Hide homepage community guidelines banner',
     hidePinnedTopics: 'Hide homepage pinned topics',
     importBlockedWords: 'Import',
     openSettings: 'Open Linux.do settings',
@@ -105,6 +106,7 @@ const appMessages = {
     deleteBlockedWord: '删除屏蔽词',
     enableBlockedWords: '启用首页屏蔽词',
     exportBlockedWords: '导出',
+    hideCommunityGuidelines: '屏蔽首页社区准则横幅',
     hidePinnedTopics: '隐藏首页置顶话题',
     importBlockedWords: '导入',
     openSettings: '打开 Linux.do 设置',
@@ -171,6 +173,7 @@ const appMessages = {
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
     exportBlockedWords: '匯出',
+    hideCommunityGuidelines: '屏蔽首頁社區準則橫幅',
     hidePinnedTopics: '隱藏首頁置頂話題',
     importBlockedWords: '匯入',
     openSettings: '開啟 Linux.do 設定',
@@ -237,6 +240,7 @@ const appMessages = {
     deleteBlockedWord: '刪除屏蔽詞',
     enableBlockedWords: '啟用首頁屏蔽詞',
     exportBlockedWords: '匯出',
+    hideCommunityGuidelines: '收埋首頁社區準則橫幅',
     hidePinnedTopics: '收埋首頁置頂話題',
     importBlockedWords: '匯入',
     openSettings: '打開 Linux.do 設定',
@@ -688,6 +692,11 @@ onBeforeUnmount(() => {
           <span i-mingcute:close-line aria-hidden="true" />
         </button>
       </header>
+
+      <label class="linux-do-settings-option">
+        <input v-model="settings.hideHomePageCommunityGuidelines" type="checkbox">
+        <span>{{ appLabels.hideCommunityGuidelines }}</span>
+      </label>
 
       <label class="linux-do-settings-option">
         <input v-model="settings.hideHomePagePinnedTopics" type="checkbox">

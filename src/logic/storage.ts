@@ -113,6 +113,7 @@ export interface Settings {
   useSearchPageModeOnHomePage: boolean
   searchPageModeWallpaperFixed: boolean
   hideHomePagePinnedTopics: boolean
+  hideHomePageCommunityGuidelines: boolean
   showHomePageTopicTags: boolean
 
   adaptToOtherPageStyles: boolean
@@ -235,6 +236,7 @@ export const originalSettings: Settings = {
   useSearchPageModeOnHomePage: false,
   searchPageModeWallpaperFixed: false,
   hideHomePagePinnedTopics: true,
+  hideHomePageCommunityGuidelines: false,
   showHomePageTopicTags: true,
 
   adaptToOtherPageStyles: true,
