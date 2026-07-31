@@ -43,6 +43,58 @@ const PINNED_TOPIC_ITEM_SELF_SELECTOR = [
 ].join(', ')
 const PINNED_TOPIC_TEXT_MARKER_SELECTOR = 'span, div, a, button'
 const PINNED_TOPIC_TEXT_MARKER_PATTERN = /(?:^|[\s·|:：])(?:已?置顶|pinned)(?:$|[\s·|:：])/i
+// Discourse banner topic markup: .container > .row > #banner > (.floated-buttons + #banner-content)
+// Ordered fallback chain (most specific first); precedence is intentional — do not collapse
+// into one comma-compound selector (that returns first match in DOCUMENT order).
+const COMMUNITY_GUIDELINES_STRUCTURAL_SELECTORS = [
+  '#banner',
+  '#banner-content',
+  '.custom-banner',
+  '[data-bewly-community-guidelines]',
+]
+const COMMUNITY_GUIDELINES_WRAPPER_SELECTOR = '.container, .row'
+const COMMUNITY_GUIDELINES_TEXT_CANDIDATE_SELECTOR = 'p, div, section, aside, blockquote, span, strong'
+const COMMUNITY_GUIDELINES_SLOGAN_PATTERN = /真诚[、，,]友善[、，,]团结[、，,]专业/
+const COMMUNITY_GUIDELINES_LINK_TEXT_PATTERN = /《社区准则》/
+// Real strip is ~31 chars after whitespace strip; larger text means a layout container.
+const COMMUNITY_GUIDELINES_MAX_TEXT_LENGTH = 200
+const COMMUNITY_GUIDELINES_MAX_LIFT_DEPTH = 4
+// Never hide these, and never lift into them.
+const COMMUNITY_GUIDELINES_PROTECTED_SELECTOR = [
+  'html',
+  'body',
+  'main',
+  'article',
+  'header',
+  'footer',
+  'nav',
+  '#main-container',
+  '#main-outlet',
+  '#main-outlet-wrapper',
+  '#list-area',
+  '.discovery-layout',
+  '.ember-application',
+  '.d-header',
+  '.sidebar-wrapper',
+  '.list-controls',
+  '.navigation-container',
+  // Core search hero — NOT the guideline strip.
+  '.welcome-banner',
+].join(', ')
+// Still containing any of these ⇒ layout ancestor, not the banner.
+const COMMUNITY_GUIDELINES_PROTECTED_DESCENDANT_SELECTOR = [
+  '.nav-pills',
+  '.list-controls',
+  '.navigation-container',
+  '.topic-list',
+  '.topic-list-item',
+  '#list-area',
+  '#main-outlet',
+  '.welcome-banner',
+  '.search-menu',
+  '.d-header',
+  '.sidebar-wrapper',
+].join(', ')
 const HOME_PAGE_HIDDEN_ELEMENT_ATTR = 'data-bewly-home-page-hidden'
 const HOME_PAGE_HIDDEN_KIND_SEPARATOR = ' '
 const HOME_PAGE_PREVIOUS_DISPLAY_ATTR = 'data-bewly-home-page-previous-display'
@@ -97,7 +149,8 @@ interface TopicTag {
   href: string
 }
 
-type HomePageHiddenElementKind = 'pinned-topic' | 'blocked-word'
+const HOME_PAGE_HIDDEN_ELEMENT_KINDS = ['pinned-topic', 'blocked-word', 'community-guidelines'] as const
+type HomePageHiddenElementKind = typeof HOME_PAGE_HIDDEN_ELEMENT_KINDS[number]
 type HomePageBlockedWordMatcher = (text: string) => boolean
 
 /**
@@ -319,12 +372,14 @@ export function isLinuxDoHomePage(url: string): boolean {
 
 export interface LinuxDoHomePageCleanupOptions {
   hidePinnedTopics: boolean
+  hideCommunityGuidelines?: boolean
   enableBlockedWords?: boolean
   blockedWords?: string[]
 }
 
 const DEFAULT_HOME_PAGE_CLEANUP_OPTIONS: LinuxDoHomePageCleanupOptions = {
   hidePinnedTopics: true,
+  hideCommunityGuidelines: false,
   enableBlockedWords: false,
   blockedWords: [],
 }
@@ -346,6 +401,11 @@ export function hideLinuxDoHomePageElements(
     hidePinnedTopicRows(root)
   else
     restoreHiddenElements(root, 'pinned-topic')
+
+  if (cleanupOptions.hideCommunityGuidelines)
+    hideCommunityGuidelinesBanner(root)
+  else
+    restoreHiddenElements(root, 'community-guidelines')
 
   if (cleanupOptions.enableBlockedWords)
     applyBlockedWordFiltering(root, cleanupOptions.blockedWords ?? [])
@@ -584,6 +644,131 @@ export function findLinuxDoTopicLink(target: EventTarget | null, baseUrl: string
   return normalizeLinuxDoTopicUrl(href, baseUrl)
 }
 
+function hideCommunityGuidelinesBanner(root: ParentNode): void {
+  const banner = findCommunityGuidelinesBanner(root)
+
+  if (banner)
+    hideElement(banner, 'community-guidelines')
+}
+
+// Layered lookup: structural Discourse markup first, whitespace-normalized text second.
+function findCommunityGuidelinesBanner(root: ParentNode): HTMLElement | null {
+  const banner = findStructuralCommunityGuidelinesBanner(root)
+    ?? findTextualCommunityGuidelinesBanner(root)
+
+  if (!banner || !isSafeCommunityGuidelinesTarget(banner) || !isGuidelineSizedContainer(banner))
+    return null
+
+  return banner
+}
+
+function findStructuralCommunityGuidelinesBanner(root: ParentNode): HTMLElement | null {
+  for (const selector of COMMUNITY_GUIDELINES_STRUCTURAL_SELECTORS) {
+    const element = root.querySelector<HTMLElement>(selector)
+
+    if (!element)
+      continue
+
+    const bannerRoot = element.closest<HTMLElement>('#banner') ?? element
+
+    if (hasAnyCommunityGuidelinesSignal(bannerRoot) && isSafeCommunityGuidelinesTarget(bannerRoot))
+      return liftCommunityGuidelinesWrapper(bannerRoot)
+  }
+
+  return null
+}
+
+// Only hop over shells that wrap the banner alone (.container > .row > #banner),
+// so the banner's own margin collapses with the shell instead of leaving a gap.
+function liftCommunityGuidelinesWrapper(element: HTMLElement): HTMLElement {
+  let container = element
+
+  for (let depth = 0; depth < 2; depth += 1) {
+    const parent = container.parentElement
+
+    if (!parent || parent.children.length !== 1)
+      break
+
+    if (!parent.matches(COMMUNITY_GUIDELINES_WRAPPER_SELECTOR) || !isSafeCommunityGuidelinesTarget(parent))
+      break
+
+    container = parent
+  }
+
+  return container
+}
+
+function findTextualCommunityGuidelinesBanner(root: ParentNode): HTMLElement | null {
+  const fullMatches = collectGuidelineTextCandidates(root, hasFullCommunityGuidelinesSignal)
+  const candidates = fullMatches.length > 0
+    ? fullMatches
+    : collectGuidelineTextCandidates(root, hasGuidelineLinkTextSignal)
+  // Deepest candidate = the smallest element that already covers the whole signal.
+  const deepest = candidates.find(element => !candidates.some(other => other !== element && element.contains(other)))
+
+  return deepest ? liftCommunityGuidelinesTextContainer(deepest) : null
+}
+
+function collectGuidelineTextCandidates(
+  root: ParentNode,
+  hasSignal: (element: HTMLElement) => boolean,
+): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(COMMUNITY_GUIDELINES_TEXT_CANDIDATE_SELECTOR))
+    .filter(hasSignal)
+    .filter(isGuidelineSizedContainer)
+    .filter(isSafeCommunityGuidelinesTarget)
+}
+
+function liftCommunityGuidelinesTextContainer(element: HTMLElement): HTMLElement {
+  const bannerText = normalizeTextForMatching(element.textContent ?? '')
+  let container = element
+
+  for (let depth = 0; depth < COMMUNITY_GUIDELINES_MAX_LIFT_DEPTH; depth += 1) {
+    const parent = container.parentElement
+
+    if (!parent || !isSafeCommunityGuidelinesTarget(parent))
+      break
+
+    if (normalizeTextForMatching(parent.textContent ?? '') !== bannerText)
+      break
+
+    container = parent
+  }
+
+  return container
+}
+
+function isSafeCommunityGuidelinesTarget(element: HTMLElement): boolean {
+  // documentElement has no parent element; a detached/root node is never a banner.
+  if (!element.parentElement)
+    return false
+
+  if (element === element.ownerDocument.body || element.matches(COMMUNITY_GUIDELINES_PROTECTED_SELECTOR))
+    return false
+
+  return element.querySelector(COMMUNITY_GUIDELINES_PROTECTED_DESCENDANT_SELECTOR) === null
+}
+
+function isGuidelineSizedContainer(element: HTMLElement): boolean {
+  return normalizeTextForMatching(element.textContent ?? '').length <= COMMUNITY_GUIDELINES_MAX_TEXT_LENGTH
+}
+
+function hasFullCommunityGuidelinesSignal(element: HTMLElement): boolean {
+  const text = normalizeTextForMatching(element.textContent ?? '')
+
+  return COMMUNITY_GUIDELINES_SLOGAN_PATTERN.test(text) && COMMUNITY_GUIDELINES_LINK_TEXT_PATTERN.test(text)
+}
+
+function hasGuidelineLinkTextSignal(element: HTMLElement): boolean {
+  return COMMUNITY_GUIDELINES_LINK_TEXT_PATTERN.test(normalizeTextForMatching(element.textContent ?? ''))
+}
+
+function hasAnyCommunityGuidelinesSignal(element: HTMLElement): boolean {
+  const text = normalizeTextForMatching(element.textContent ?? '')
+
+  return COMMUNITY_GUIDELINES_SLOGAN_PATTERN.test(text) || COMMUNITY_GUIDELINES_LINK_TEXT_PATTERN.test(text)
+}
+
 function hidePinnedTopicRows(root: ParentNode): void {
   Array.from(root.querySelectorAll<HTMLElement>(TOPIC_ITEM_SELECTOR))
     .filter(isPinnedTopicItem)
@@ -739,7 +924,7 @@ function getHiddenElementKinds(element: HTMLElement): HomePageHiddenElementKind[
 }
 
 function isHomePageHiddenElementKind(kind: string): kind is HomePageHiddenElementKind {
-  return kind === 'pinned-topic' || kind === 'blocked-word'
+  return (HOME_PAGE_HIDDEN_ELEMENT_KINDS as readonly string[]).includes(kind)
 }
 
 function normalizeTextForMatching(text: string): string {

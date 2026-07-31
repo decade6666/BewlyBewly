@@ -157,4 +157,16 @@ describe('settingsMigration legacy-key surface still works', () => {
     expect(cleaned).not.toHaveProperty('hideHomePageGuidelineBanner')
     expect(cleaned.theme).toBe('dark')
   })
+
+  it('drops the legacy guideline key while keeping the new community guidelines setting', () => {
+    const cleaned = removeLegacySettingsFields(withSettings({
+      hideHomePageGuidelineBanner: false,
+      hideHomePageCommunityGuidelines: true,
+      theme: 'light',
+    }))
+
+    expect(cleaned).not.toHaveProperty('hideHomePageGuidelineBanner')
+    expect(cleaned.hideHomePageCommunityGuidelines).toBe(true)
+    expect(cleaned.theme).toBe('light')
+  })
 })
